@@ -25,13 +25,20 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
   // Efecto para cargar los datos si estamos editando.
   useEffect(() => {
     if (editingAccommodation) {
+      // Convert date to datetime-local format for input
+      const toDateTimeLocal = (val) => {
+        if (!val) return '';
+        const d = new Date(val);
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
+      };
       setFormData({
         type: editingAccommodation.type || 'hotel',
         name: editingAccommodation.name || '',
         cost: editingAccommodation.cost || '',
         rating: editingAccommodation.rating || 0,
-        check_in: editingAccommodation.check_in || '',
-        check_out: editingAccommodation.check_out || '',
+        check_in: toDateTimeLocal(editingAccommodation.check_in),
+        check_out: toDateTimeLocal(editingAccommodation.check_out),
         notes: editingAccommodation.notes || ''
       });
     } else {
@@ -144,21 +151,21 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
             />
           </div>
 
-          {/* Fechas de estancia */}
+          {/* Fechas y horas de estancia */}
           <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-in</label>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-in (fecha y hora)</label>
               <input 
-                type="date"
+                type="datetime-local"
                 value={formData.check_in}
                 onChange={e => setFormData({...formData, check_in: e.target.value})}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
               />
             </div>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-out</label>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-out (fecha y hora)</label>
               <input 
-                type="date"
+                type="datetime-local"
                 value={formData.check_out}
                 onChange={e => setFormData({...formData, check_out: e.target.value})}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
