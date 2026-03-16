@@ -64,13 +64,23 @@ CREATE TABLE IF NOT EXISTS public.trip_participants (
 
 ALTER TABLE public.trip_participants ENABLE ROW LEVEL SECURITY;
 
+-- Security Definer function to break RLS recursion
+CREATE OR REPLACE FUNCTION public.is_trip_owner(trip_uuid UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.trips WHERE id = trip_uuid AND owner_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE POLICY "Participants can see their own invitations."
 ON public.trip_participants FOR SELECT
-USING ( auth.uid() = user_id OR auth.uid() IN (SELECT owner_id FROM public.trips WHERE id = trip_id) );
+USING ( auth.uid() = user_id OR public.is_trip_owner(trip_id) );
 
 CREATE POLICY "Owners can invite participants."
 ON public.trip_participants FOR INSERT
-WITH CHECK ( auth.uid() IN (SELECT owner_id FROM public.trips WHERE id = trip_id) );
+WITH CHECK ( public.is_trip_owner(trip_id) );
 
 CREATE POLICY "Users can accept their own invitation."
 ON public.trip_participants FOR UPDATE
@@ -78,6 +88,10 @@ USING ( auth.uid() = user_id );
 
 -- 5. RLS Policies for trips (Only owner or accepted participants can see/edit)
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can create their own trips."
+ON public.trips FOR INSERT
+WITH CHECK ( auth.uid() = owner_id );
 
 CREATE POLICY "Trips are viewable by owner or accepted participants."
 ON public.trips FOR SELECT
