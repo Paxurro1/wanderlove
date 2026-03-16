@@ -93,15 +93,14 @@ CREATE POLICY "Users can create their own trips."
 ON public.trips FOR INSERT
 WITH CHECK ( auth.uid() = owner_id );
 
-CREATE POLICY "Trips are viewable by owner or accepted participants."
+CREATE POLICY "Trips are viewable by owner or participants."
 ON public.trips FOR SELECT
 USING (
     auth.uid() = owner_id OR 
     EXISTS (
         SELECT 1 FROM public.trip_participants 
         WHERE trip_id = public.trips.id 
-        AND user_id = auth.uid() 
-        AND status = 'accepted'
+        AND user_id = auth.uid()
     )
 );
 

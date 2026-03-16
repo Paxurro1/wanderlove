@@ -144,7 +144,7 @@ const Profile = () => {
               invitations.map((inv) => (
                 <div key={inv.id} className="invitation-card">
                   <div className="inv-info">
-                    <strong>{inv.trips.destination}</strong>
+                    <strong>{inv.trips?.destination || 'Viaje desconocido'}</strong>
                     <span>Invitación recibida</span>
                   </div>
                   <div className="inv-actions">
