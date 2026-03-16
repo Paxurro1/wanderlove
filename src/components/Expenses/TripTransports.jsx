@@ -53,6 +53,8 @@ export default function TripTransports({ tripId }) {
   const executeDelete = async () => {
     if (!confirmModal.id) return;
     try {
+      // Also delete linked expenses
+      await supabase.from('expenses').delete().eq('reference_id', confirmModal.id);
       const table = confirmModal.type === 'transport' ? 'transports' : 'airport_transfers';
       await supabase.from(table).delete().eq('id', confirmModal.id);
       fetchTransports();

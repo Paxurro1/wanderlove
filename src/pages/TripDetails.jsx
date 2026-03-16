@@ -6,9 +6,10 @@
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
@@ -36,10 +37,13 @@ const TABS = [
 export default function TripDetails() {
   // useParams() lee la URL. Si la URL es /trip/5, extrae id="5"
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   
   // -- ESTADOS (State) --
   const [trip, setTrip] = useState(null); // Objeto con la info general del viaje (destino, portada)
   const [places, setPlaces] = useState([]); // Lugares/Actividades del itinerario
+  const [participants, setParticipants] = useState([]); // Participantes del viaje
   const [activeTab, setActiveTab] = useState('itinerary'); // Pestaña actualmente visible
   const [loading, setLoading] = useState(true); // Controla el estado "Cargando..."
   const [isPlaceModalOpen, setIsPlaceModalOpen] = useState(false); // Pop-up de nuevo lugar
@@ -82,6 +86,17 @@ export default function TripDetails() {
       if (!placeError && placeData) {
         setPlaces(placeData);
       }
+
+      // 3. Fetch participants (accepted)
+      const { data: participantData, error: participantError } = await supabase
+        .from('trip_participants')
+        .select('user_id, status, profiles:user_id(id, full_name, email, avatar_url)')
+        .eq('trip_id', id)
+        .eq('status', 'accepted');
+      
+      if (participantError) throw participantError;
+      setParticipants(participantData || []);
+
     } catch (error) {
       console.error('Error fetching trip data:', error);
     } finally {
@@ -122,6 +137,21 @@ export default function TripDetails() {
     } finally {
       setLoading(false);
       setConfirmModal({ isOpen: false, placeId: null, placeName: '' });
+    }
+  };
+
+  const handleLeaveTrip = async () => {
+    if (!window.confirm('¿Seguro que quieres salir de este viaje? Perderás el acceso.')) return;
+    try {
+      const { error } = await supabase
+        .from('trip_participants')
+        .delete()
+        .eq('trip_id', id)
+        .eq('user_id', user.id);
+      if (error) throw error;
+      navigate('/');
+    } catch (error) {
+      alert('Error al salir del viaje: ' + error.message);
     }
   };
 
@@ -318,6 +348,37 @@ export default function TripDetails() {
           <p style={{ fontSize: '1.2rem', opacity: 0.9, textShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>
             {new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}
           </p>
+
+          {/* Participants row */}
+          {participants.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+              <Users size={16} />
+              {participants.map(p => (
+                <span key={p.user_id} style={{
+                  background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)',
+                  padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500
+                }}>
+                  {p.profiles?.full_name || p.profiles?.email || 'Participante'}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Leave trip button (only for non-owners) */}
+          {trip.owner_id !== user?.id && (
+            <button
+              onClick={handleLeaveTrip}
+              style={{
+                marginTop: 'var(--spacing-md)',
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'rgba(231,76,60,0.4)', border: '1px solid rgba(231,76,60,0.6)',
+                color: 'white', padding: '8px 16px', borderRadius: '30px',
+                cursor: 'pointer', backdropFilter: 'blur(5px)', fontSize: '0.9rem'
+              }}
+            >
+              <LogOut size={16} /> Salir del viaje
+            </button>
+          )}
         </div>
       </header>
 

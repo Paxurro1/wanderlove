@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
-import { UserPlus, UserCheck, Search, Users, Clock, Check, X, ArrowLeft } from 'lucide-react';
+import { UserPlus, UserCheck, Search, Users, Clock, Check, X, ArrowLeft, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import '../styles/Friends.css';
 
@@ -11,6 +11,7 @@ const Friends = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [friends, setFriends] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]); // IDs of users we already sent requests to
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -30,27 +31,32 @@ const Friends = () => {
       // Fetch where I am user_id
       const { data: data1, error: error1 } = await supabase
         .from('friendships')
-        .select('friend_id, profiles:friend_id(id, email, full_name)')
+        .select('id, friend_id, profiles:friend_id(id, email, full_name)')
         .eq('user_id', user.id)
         .eq('status', 'accepted');
       
       // Fetch where I am friend_id
       const { data: data2, error: error2 } = await supabase
         .from('friendships')
-        .select('user_id, profiles:user_id(id, email, full_name)')
+        .select('id, user_id, profiles:user_id(id, email, full_name)')
         .eq('friend_id', user.id)
         .eq('status', 'accepted');
 
       if (error1 || error2) throw error1 || error2;
-      
-      console.log('fetchFriends data1:', data1);
-      console.log('fetchFriends data2:', data2);
 
       const formattedFriends = [
-        ...(data1?.map(f => f.profiles) || []),
-        ...(data2?.map(f => f.profiles) || [])
+        ...(data1?.map(f => ({ ...f.profiles, friendshipId: f.id })) || []),
+        ...(data2?.map(f => ({ ...f.profiles, friendshipId: f.id })) || [])
       ];
       setFriends(formattedFriends);
+
+      // Track sent (pending) requests to filter from search
+      const { data: sentData } = await supabase
+        .from('friendships')
+        .select('friend_id')
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+      setSentRequests((sentData || []).map(s => s.friend_id));
     } catch (error) {
       console.error('Error fetching friends:', error.message);
     }
@@ -65,7 +71,6 @@ const Friends = () => {
         .eq('status', 'pending');
       
       if (error) throw error;
-      console.log('fetchPendingRequests data:', data);
       setPendingRequests(data);
     } catch (error) {
       console.error('Error fetching pending requests:', error.message);
@@ -86,7 +91,13 @@ const Friends = () => {
         .limit(10);
       
       if (error) throw error;
-      setSearchResults(data);
+
+      // Filter out existing friends and users with pending requests
+      const friendIds = new Set(friends.map(f => f.id));
+      const pendingIds = new Set(pendingRequests.map(r => r.user_id));
+      const sentIds = new Set(sentRequests);
+      const filtered = data.filter(u => !friendIds.has(u.id) && !pendingIds.has(u.id) && !sentIds.has(u.id));
+      setSearchResults(filtered);
     } catch (error) {
       console.error('Error searching users:', error.message);
     } finally {
@@ -111,11 +122,24 @@ const Friends = () => {
           throw error;
         }
       } else {
-        alert('Solicitud enviada correctamente');
         setSearchResults(prev => prev.filter(r => r.id !== targetUserId));
       }
     } catch (error) {
       console.error('Error sending friend request:', error.message);
+    }
+  };
+
+  const removeFriend = async (friendProfile) => {
+    if (!window.confirm(`¿Eliminar a ${friendProfile.full_name || friendProfile.email} de tus amigos?`)) return;
+    try {
+      // Delete friendship in both directions
+      await supabase.from('friendships').delete()
+        .eq('user_id', user.id).eq('friend_id', friendProfile.id);
+      await supabase.from('friendships').delete()
+        .eq('user_id', friendProfile.id).eq('friend_id', user.id);
+      loadFriendsData();
+    } catch (error) {
+      console.error('Error removing friend:', error.message);
     }
   };
 
@@ -227,6 +251,13 @@ const Friends = () => {
                       <strong>{friend.full_name}</strong>
                       <span>{friend.email}</span>
                     </div>
+                    <button
+                      onClick={() => removeFriend(friend)}
+                      title="Eliminar amigo"
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(231,76,60,0.7)', cursor: 'pointer', padding: '6px', borderRadius: '6px', marginLeft: 'auto' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))
               )}

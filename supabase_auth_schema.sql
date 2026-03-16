@@ -133,3 +133,21 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- =========================================================
+-- FEATURE BATCH 2.0 - Run these if updating an existing DB
+-- =========================================================
+
+-- Allow users to delete their own friendships (unfriend)
+CREATE POLICY IF NOT EXISTS "Users can delete their own friendships."
+ON public.friendships FOR DELETE
+USING ( auth.uid() = user_id OR auth.uid() = friend_id );
+
+-- Allow participants to leave a trip (delete their own row)
+CREATE POLICY IF NOT EXISTS "Participants can leave a trip."
+ON public.trip_participants FOR DELETE
+USING ( auth.uid() = user_id );
+
+-- Add reference fields to expenses for cascade linking
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS reference_id UUID;
+ALTER TABLE public.expenses ADD COLUMN IF NOT EXISTS reference_type TEXT CHECK (reference_type IN ('document', 'accommodation', 'transport', 'transfer'));

@@ -88,6 +88,8 @@ export default function TripAccommodations({ tripId }) {
 
     try {
       setLoading(true);
+      // Also delete linked expenses
+      await supabase.from('expenses').delete().eq('reference_id', id);
       const { error } = await supabase
         .from('accommodations')
         .delete()
