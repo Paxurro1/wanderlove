@@ -30,18 +30,21 @@ const Friends = () => {
       // Fetch where I am user_id
       const { data: data1, error: error1 } = await supabase
         .from('friendships')
-        .select('friend_id, profiles!friendships_friend_id_fkey(id, email, full_name)')
+        .select('friend_id, profiles:friend_id(id, email, full_name)')
         .eq('user_id', user.id)
         .eq('status', 'accepted');
       
       // Fetch where I am friend_id
       const { data: data2, error: error2 } = await supabase
         .from('friendships')
-        .select('user_id, profiles!friendships_user_id_fkey(id, email, full_name)')
+        .select('user_id, profiles:user_id(id, email, full_name)')
         .eq('friend_id', user.id)
         .eq('status', 'accepted');
 
       if (error1 || error2) throw error1 || error2;
+      
+      console.log('fetchFriends data1:', data1);
+      console.log('fetchFriends data2:', data2);
 
       const formattedFriends = [
         ...(data1?.map(f => f.profiles) || []),
@@ -57,11 +60,12 @@ const Friends = () => {
     try {
       const { data, error } = await supabase
         .from('friendships')
-        .select('id, user_id, profiles!friendships_user_id_fkey(id, email, full_name)')
+        .select('id, user_id, profiles:user_id(id, email, full_name)')
         .eq('friend_id', user.id)
         .eq('status', 'pending');
       
       if (error) throw error;
+      console.log('fetchPendingRequests data:', data);
       setPendingRequests(data);
     } catch (error) {
       console.error('Error fetching pending requests:', error.message);

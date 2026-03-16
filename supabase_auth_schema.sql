@@ -28,8 +28,8 @@ USING ( auth.uid() = id );
 -- 2. Friendships table
 CREATE TABLE IF NOT EXISTS public.friendships (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    friend_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    friend_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'blocked')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(user_id, friend_id)
@@ -50,13 +50,13 @@ ON public.friendships FOR UPDATE
 USING ( auth.uid() = user_id OR auth.uid() = friend_id );
 
 -- 3. Update Trips table to include owner and invite system
-ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES public.profiles(id);
 
 -- 4. Trip Participants (Invitations)
 CREATE TABLE IF NOT EXISTS public.trip_participants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     trip_id UUID REFERENCES public.trips(id) ON DELETE CASCADE NOT NULL,
-    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending', 'accepted')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(trip_id, user_id)

@@ -57,13 +57,13 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
     try {
       const { data: data1 } = await supabase
         .from('friendships')
-        .select('profiles!friendships_friend_id_fkey(id, full_name, email)')
+        .select('profiles:friend_id(id, full_name, email)')
         .eq('user_id', user.id)
         .eq('status', 'accepted');
       
       const { data: data2 } = await supabase
         .from('friendships')
-        .select('profiles!friendships_user_id_fkey(id, full_name, email)')
+        .select('profiles:user_id(id, full_name, email)')
         .eq('friend_id', user.id)
         .eq('status', 'accepted');
 
