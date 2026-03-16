@@ -88,17 +88,25 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signOut = async () => {
-    console.log('Auth: signOut called');
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) console.error('Auth: signOut error:', error);
-      else console.log('Auth: signOut success');
-    } catch (e) {
-      console.error('Auth: signOut exception:', e);
-    }
+  const signOut = () => {
+    console.log('Auth: signOut called (fire-and-forget)');
+    // Clear state immediately without waiting for Supabase (fixes Chrome hanging)
     setUser(null);
     setProfile(null);
+    // Also manually clear Supabase tokens from localStorage
+    try {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+      keys.forEach(k => localStorage.removeItem(k));
+      console.log('Auth: localStorage cleared');
+    } catch (e) {
+      console.warn('Auth: could not clear localStorage', e);
+    }
+    // Tell Supabase to sign out in the background (don't await)
+    supabase.auth.signOut().then(() => {
+      console.log('Auth: Supabase signOut confirmed');
+    }).catch(e => {
+      console.warn('Auth: Supabase signOut failed (ok, state already cleared)', e);
+    });
   };
 
   const value = {
