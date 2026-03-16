@@ -84,7 +84,7 @@ export default function AdventuresMap() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link to="/" className="btn-secondary" style={{ 
-            background: 'rgba(255,255,255,0.8)', padding: '10px 15px', 
+            padding: '10px 15px', 
             borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' 
           }}>
             <ArrowLeft size={20} />
@@ -136,8 +136,9 @@ export default function AdventuresMap() {
       {loading && (
         <div style={{ 
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
-          background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
+          background: 'var(--glass-bg)', backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100,
+          color: 'var(--color-text-main)'
         }}>
           <h2>Cargando vuestras huellas por el mundo...</h2>
         </div>

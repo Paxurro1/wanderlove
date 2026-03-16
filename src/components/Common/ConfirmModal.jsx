@@ -4,17 +4,8 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 2000, padding: 'var(--spacing-md)'
-    }}>
-      <div className="glass-panel animate-fade-in" style={{ 
-        background: 'var(--color-surface)', width: '100%', maxWidth: '400px', 
-        padding: 'var(--spacing-xl)', textAlign: 'center', position: 'relative',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.3)', border: '1px solid var(--color-border)'
-      }}>
+    <div className="modal-overlay">
+      <div className="modal-content animate-fade-in" style={{ maxWidth: '400px', textAlign: 'center' }}>
         {/* Botón Cerrar */}
         <button onClick={onClose} style={{ position: 'absolute', top: 'var(--spacing-md)', right: 'var(--spacing-md)', color: 'var(--color-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
           <X size={24} />

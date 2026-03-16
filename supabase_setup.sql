@@ -5,8 +5,8 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE trips (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     destination TEXT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
+    start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_date TIMESTAMP WITH TIME ZONE NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('upcoming', 'past')),
     rating INTEGER CHECK (rating >= 1 AND rating <= 5),
     review_good TEXT,

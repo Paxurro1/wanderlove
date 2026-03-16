@@ -121,7 +121,12 @@ export default function Dashboard() {
         // Convertimos esos milisegundos a días y a horas mediante matemáticas puras
         const days = Math.floor(difference / (1000 * 60 * 60 * 24));
         const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-        setTimeLeft(`${days}d ${hours}h`);
+        const minutes = Math.floor((difference / (1000 * 60)) % 60);
+        
+        let timeStr = '';
+        if (days > 0) timeStr += `${days}d `;
+        timeStr += `${hours}h ${minutes}m`;
+        setTimeLeft(timeStr);
       } else {
         // Si la diferencia es <= 0, significa que el viaje ya ha empezado.
         setTimeLeft('¡Estáis viajando!');
@@ -129,7 +134,7 @@ export default function Dashboard() {
     };
 
     calculateTimeLeft(); // La calculamos la primera vez inmediatamente
-    const timer = setInterval(calculateTimeLeft, 1000 * 60 * 60); // Repetimos el cálculo cada hora
+    const timer = setInterval(calculateTimeLeft, 1000 * 60); // Repetimos el cálculo cada minuto
     
     // Función de "limpieza" (cleanup) que se ejecuta al salir del componente, vital para no dejar procesos colgando en memoria
     return () => clearInterval(timer);
