@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({
@@ -12,13 +12,19 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(true);
+
+  const setLoadingState = (val) => {
+    loadingRef.current = val;
+    setLoading(val);
+  };
 
   useEffect(() => {
     // Safety timeout: If auth takes more than 10 seconds, force loading to false
     const timeout = setTimeout(() => {
-      if (loading) {
+      if (loadingRef.current) {
         console.warn('Auth: Safety timeout reached. Forcing loading=false');
-        setLoading(false);
+        setLoadingState(false);
       }
     }, 10000);
 
@@ -31,11 +37,11 @@ export const AuthProvider = ({ children }) => {
       if (currentUser) {
         fetchProfile(currentUser.id);
       } else {
-        setLoading(false);
+        setLoadingState(false);
       }
     }).catch(err => {
       console.error('Auth: Session error:', err);
-      setLoading(false);
+      setLoadingState(false);
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
@@ -49,7 +55,7 @@ export const AuthProvider = ({ children }) => {
         await fetchProfile(currentUser.id);
       } else {
         setProfile(null);
-        setLoading(false);
+        setLoadingState(false);
       }
     });
 
@@ -78,12 +84,19 @@ export const AuthProvider = ({ children }) => {
       console.error('Auth: Error fetching profile:', error.message);
     } finally {
       console.log('Auth: Loading finished');
-      setLoading(false);
+      setLoadingState(false);
     }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    console.log('Auth: signOut called');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) console.error('Auth: signOut error:', error);
+      else console.log('Auth: signOut success');
+    } catch (e) {
+      console.error('Auth: signOut exception:', e);
+    }
     setUser(null);
     setProfile(null);
   };

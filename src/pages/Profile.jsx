@@ -15,8 +15,14 @@ const Profile = () => {
   const [msg, setMsg] = useState({ text: '', type: '' });
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/auth');
+    console.log('Profile: handleSignOut called');
+    try {
+      await signOut();
+      console.log('Profile: signOut done, navigating to /auth');
+      navigate('/auth');
+    } catch (e) {
+      console.error('Profile: handleSignOut error', e);
+    }
   };
 
   useEffect(() => {
