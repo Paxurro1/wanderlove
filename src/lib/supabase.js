@@ -11,6 +11,11 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
+console.log('Supabase Config:', {
+  url: supabaseUrl === 'https://placeholder.supabase.co' ? 'PLACEHOLDER' : 'CONFIGURED',
+  key: supabaseAnonKey === 'placeholder-anon-key' ? 'PLACEHOLDER' : 'CONFIGURED'
+});
+
 // Exportamos la instancia única (singleton) del cliente para usarla en toda la app.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

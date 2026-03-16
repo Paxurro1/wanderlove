@@ -15,13 +15,18 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check active sessions and sets the user
+    console.log('Auth: Checking session...');
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Auth: Session response:', session ? 'User logged in' : 'No session');
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
         setLoading(false);
       }
+    }).catch(err => {
+      console.error('Auth: Session error:', err);
+      setLoading(false);
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
@@ -41,6 +46,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const fetchProfile = async (userId) => {
+    console.log('Auth: Fetching profile for:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -48,11 +54,16 @@ export const AuthProvider = ({ children }) => {
         .eq('id', userId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Auth: Profile fetch error:', error);
+        throw error;
+      }
+      console.log('Auth: Profile data:', data);
       setProfile(data);
     } catch (error) {
-      console.error('Error fetching profile:', error.message);
+      console.error('Auth: Error fetching profile:', error.message);
     } finally {
+      console.log('Auth: Loading finished');
       setLoading(false);
     }
   };
