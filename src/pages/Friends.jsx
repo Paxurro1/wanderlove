@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
-import { UserPlus, UserCheck, Search, Users, Clock, Check, X } from 'lucide-react';
+import { UserPlus, UserCheck, Search, Users, Clock, Check, X, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import '../styles/Friends.css';
 
 const Friends = () => {
@@ -138,7 +139,10 @@ const Friends = () => {
   return (
     <div className="friends-container">
       <header className="friends-header">
-        <h1><Users size={28} /> Amigos</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <Link to="/" style={{ color: 'var(--color-text-muted)' }}><ArrowLeft size={24} /></Link>
+          <h1><Users size={28} /> Amigos</h1>
+        </div>
         <form onSubmit={handleSearch} className="search-bar">
           <input 
             type="text" 

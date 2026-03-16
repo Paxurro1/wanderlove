@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
-import { User, LogOut, Key, Mail, Bell, Check, X, Shield } from 'lucide-react';
+import { User, LogOut, Key, Mail, Bell, Check, X, Shield, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import '../styles/Profile.css';
 
 const Profile = () => {
@@ -86,13 +87,16 @@ const Profile = () => {
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <div className="profile-info">
-          <div className="profile-avatar">
-            {profile?.full_name?.charAt(0) || user?.email?.charAt(0)}
-          </div>
-          <div>
-            <h1>{profile?.full_name || 'Usuario'}</h1>
-            <p><Mail size={14} /> {user?.email}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <Link to="/" style={{ color: 'var(--color-text-muted)' }}><ArrowLeft size={24} /></Link>
+          <div className="profile-info">
+            <div className="profile-avatar">
+              {profile?.full_name?.charAt(0) || user?.email?.charAt(0)}
+            </div>
+            <div>
+              <h1>{profile?.full_name || 'Usuario'}</h1>
+              <p><Mail size={14} /> {user?.email}</p>
+            </div>
           </div>
         </div>
         <button onClick={signOut} className="btn-logout">

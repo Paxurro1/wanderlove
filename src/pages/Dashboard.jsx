@@ -7,12 +7,14 @@
 
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Calendar, MapPin, Plus, X, Globe } from 'lucide-react';
+import { Plane, Calendar, MapPin, Plus, X, Globe, Users, User } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import NewTripModal from '../components/NewTripModal';
 import ConfirmModal from '../components/Common/ConfirmModal';
 
 export default function Dashboard() {
+  const { user, profile } = useAuth();
   // --- ESTADOS LOCALES (Hooks de React) ---
   // trips: Almacena el array de todos los viajes obtenidos de la base de datos.
   const [trips, setTrips] = useState([]);
@@ -154,7 +156,33 @@ export default function Dashboard() {
         <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
           <Link to="/adventures-map">
             <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
-              <Globe size={18} /> Mapa Global
+              <Globe size={18} /> Mapa
+            </button>
+          </Link>
+
+          <Link to="/friends">
+            <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
+              <Users size={18} /> Amigos
+            </button>
+          </Link>
+
+          <Link to="/profile">
+            <button className="btn-secondary" style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              width: '40px', 
+              height: '40px', 
+              padding: '0',
+              borderRadius: '50%',
+              background: 'var(--color-bg-panel)',
+              border: '1px solid var(--color-border)'
+            }} title="Mi Perfil">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+              ) : (
+                <User size={20} />
+              )}
             </button>
           </Link>
           
