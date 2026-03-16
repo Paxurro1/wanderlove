@@ -46,7 +46,9 @@ const Auth = () => {
           },
         });
         if (error) throw error;
-        setMessage('Registro exitoso. Se ha enviado un correo de confirmación. Por favor, revisa tu bandeja de entrada.');
+        setMessage('¡Registro exitoso! Ya puedes iniciar sesión con tu cuenta.');
+        setFullName(''); // Limpiamos campos
+        setConfirmPassword('');
         setView('login');
       } else if (view === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
