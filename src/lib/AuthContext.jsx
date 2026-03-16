@@ -13,6 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(true);
+  const sessionHandledRef = useRef(false); // Prevents double fetchProfile
 
   const setLoadingState = (val) => {
     loadingRef.current = val;
@@ -26,7 +27,7 @@ export const AuthProvider = ({ children }) => {
         console.warn('Auth: Safety timeout reached. Forcing loading=false');
         setLoadingState(false);
       }
-    }, 10000);
+    }, 5000);
 
     // Check active sessions and sets the user
     console.log('Auth: Checking session...');
@@ -35,6 +36,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
+        sessionHandledRef.current = true;
         fetchProfile(currentUser.id);
       } else {
         setLoadingState(false);
@@ -52,7 +54,11 @@ export const AuthProvider = ({ children }) => {
       setUser(currentUser);
       
       if (currentUser) {
-        await fetchProfile(currentUser.id);
+        // Only fetch profile if getSession didn't already handle it
+        if (!sessionHandledRef.current) {
+          await fetchProfile(currentUser.id);
+        }
+        sessionHandledRef.current = false; // reset for future events
       } else {
         setProfile(null);
         setLoadingState(false);
@@ -68,11 +74,17 @@ export const AuthProvider = ({ children }) => {
   const fetchProfile = async (userId) => {
     console.log('Auth: Fetching profile for:', userId);
     try {
-      const { data, error } = await supabase
+      const fetchPromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+      
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
       
       if (error) {
         console.error('Auth: Profile fetch error:', error);
@@ -82,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       setProfile(data);
     } catch (error) {
       console.error('Auth: Error fetching profile:', error.message);
+      // Don't crash - just proceed without profile
     } finally {
       console.log('Auth: Loading finished');
       setLoadingState(false);
