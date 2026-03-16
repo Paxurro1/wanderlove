@@ -2,16 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import { User, LogOut, Key, Mail, Bell, Check, X, Shield, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../styles/Profile.css';
 
 const Profile = () => {
   const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState({ text: '', type: '' });
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   useEffect(() => {
     if (user) {
@@ -99,7 +105,7 @@ const Profile = () => {
             </div>
           </div>
         </div>
-        <button onClick={signOut} className="btn-logout">
+        <button onClick={handleSignOut} className="btn-logout">
           <LogOut size={18} /> Cerrar Sesión
         </button>
       </div>
