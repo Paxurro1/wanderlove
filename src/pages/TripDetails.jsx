@@ -94,7 +94,9 @@ export default function TripDetails() {
         .eq('trip_id', id)
         .eq('status', 'accepted');
       
-      if (participantError) throw participantError;
+      if (participantError) {
+        console.warn('Participants fetch error (may be RLS):', participantError.message);
+      }
       setParticipants(participantData || []);
 
     } catch (error) {

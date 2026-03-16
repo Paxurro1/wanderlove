@@ -221,23 +221,27 @@ export default function Dashboard() {
                 Ver detalles <Plane size={18} />
               </button>
             </Link>
-            <button 
-              className="btn-primary" 
-              onClick={() => {
-                setEditingTrip(upcomingTrip);
-                setIsModalOpen(true);
-              }}
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: 'var(--spacing-sm) var(--spacing-md)' }}
-            >
-              Editar
-            </button>
-            <button 
-              className="btn-primary" 
-              onClick={() => handleDeleteTrip(upcomingTrip.id, upcomingTrip.destination)}
-              style={{ background: 'rgba(231, 76, 60, 0.4)', border: 'none', padding: 'var(--spacing-sm) var(--spacing-md)' }}
-            >
-              Borrar
-            </button>
+            {upcomingTrip.owner_id === user?.id && (
+              <>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => {
+                    setEditingTrip(upcomingTrip);
+                    setIsModalOpen(true);
+                  }}
+                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: 'var(--spacing-sm) var(--spacing-md)' }}
+                >
+                  Editar
+                </button>
+                <button 
+                  className="btn-primary" 
+                  onClick={() => handleDeleteTrip(upcomingTrip.id, upcomingTrip.destination)}
+                  style={{ background: 'rgba(231, 76, 60, 0.4)', border: 'none', padding: 'var(--spacing-sm) var(--spacing-md)' }}
+                >
+                  Borrar
+                </button>
+              </>
+            )}
           </div>
         </section>
       ) : (
@@ -262,24 +266,26 @@ export default function Dashboard() {
               overflow: 'hidden',
               transition: 'transform var(--transition-normal)'
             }}>
-              {/* Botones de acción rápidos */}
-              <div style={{ position: 'absolute', top: 'var(--spacing-sm)', right: 'var(--spacing-sm)', display: 'flex', gap: '8px', zIndex: 10 }}>
-                 <button 
-                  onClick={() => {
-                    setEditingTrip(trip);
-                    setIsModalOpen(true);
-                  }}
-                  style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
-                >
-                  <Calendar size={14} /> {/* Icono de calendario para editar fechas/viaje */}
-                </button>
-                <button 
-                  onClick={() => handleDeleteTrip(trip.id, trip.destination)}
-                  style={{ background: 'rgba(231, 76, 60, 0.3)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
-                >
-                  <X size={14} />
-                </button>
-              </div>
+              {/* Botones de acción rápidos - solo para el dueño */}
+              {trip.owner_id === user?.id && (
+                <div style={{ position: 'absolute', top: 'var(--spacing-sm)', right: 'var(--spacing-sm)', display: 'flex', gap: '8px', zIndex: 10 }}>
+                   <button 
+                    onClick={() => {
+                      setEditingTrip(trip);
+                      setIsModalOpen(true);
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
+                  >
+                    <Calendar size={14} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteTrip(trip.id, trip.destination)}
+                    style={{ background: 'rgba(231, 76, 60, 0.3)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
 
               <Link to={`/trip/${trip.id}`} style={{ textDecoration: 'none' }}>
                 <div style={{ height: '160px', background: `url(${trip.cover_image}) center/cover` }}></div>
