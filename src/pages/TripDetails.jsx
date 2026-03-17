@@ -9,13 +9,14 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
 import TripDocuments from '../components/Expenses/TripDocuments';
 import TripTransports from '../components/Expenses/TripTransports';
 import TripAccommodations from '../components/Expenses/TripAccommodations';
+import TripRentals from '../components/Expenses/TripRentals';
 import TripPhotos from '../components/Expenses/TripPhotos';
 import CityRecommendations from '../components/Recommendations/CityRecommendations';
 import ConfirmModal from '../components/Common/ConfirmModal';
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'itinerary', label: 'Itinerario', icon: CalendarDays },
   { id: 'transports', label: 'Viaje y Logística', icon: MapIcon }, 
   { id: 'accommodations', label: 'Alojamientos', icon: CalendarDays },
+  { id: 'rentals', label: 'Alquileres', icon: Car },
   { id: 'map', label: 'Mapa', icon: MapIcon },
   { id: 'expenses', label: 'Gastos', icon: DollarSign },
   { id: 'recommendations', label: 'Recomendaciones', icon: Star },
@@ -205,6 +207,8 @@ export default function TripDetails() {
         return <TripTransports tripId={trip.id} />;
       case 'accommodations':
         return <TripAccommodations tripId={trip.id} />;
+      case 'rentals':
+        return <TripRentals tripId={trip.id} trip={trip} />;
       case 'map':
         return <TripMap tripId={trip.id} onAddPlace={() => {
           setModalTitle('Añadir Lugar');

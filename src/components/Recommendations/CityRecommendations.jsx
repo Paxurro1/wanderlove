@@ -5,7 +5,7 @@
 // ============================================================================
 
 import { useState, useEffect } from 'react';
-import { Utensils, MapPin, Hotel, Ticket, Star, ExternalLink, Search, Camera, ShoppingBag, Mountain, Landmark } from 'lucide-react';
+import { Utensils, MapPin, Hotel, Ticket, Star, ExternalLink, Search, Camera, ShoppingBag, Mountain, Landmark, Car } from 'lucide-react';
 
 export default function CityRecommendations({ city: initialCity }) {
   const [city, setCity] = useState(initialCity || '');
@@ -31,7 +31,8 @@ export default function CityRecommendations({ city: initialCity }) {
     actividades: 'attractions', // "tourist attractions" fallaba en algunas ciudades
     naturaleza: 'park',        // "points of interest" era demasiado vago
     compras: 'mall',            // "shopping" devolvía 0 resultados
-    hoteles: 'hotels'
+    hoteles: 'hotels',
+    alquileres: 'car_rental'
   };
 
   const fetchRealRecommendations = async (targetCity, category) => {
@@ -112,6 +113,7 @@ export default function CityRecommendations({ city: initialCity }) {
 
   const filters = [
     { id: 'all', label: 'Todo', icon: Star },
+    { id: 'alquileres', label: 'Alquiler Coche', icon: Car },
     { id: 'interes', label: 'Cultura', icon: Landmark },
     { id: 'actividades', label: 'Actividades', icon: Ticket },
     { id: 'restaurantes', label: 'Comer', icon: Utensils },
