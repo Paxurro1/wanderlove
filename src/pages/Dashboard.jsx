@@ -1,13 +1,6 @@
-// ============================================================================
-// ARCHIVO: Dashboard.jsx
-// DESCRIPCIÓN: Pantalla Principal de la aplicación (Home).
-// Muestra el temporizador para el viaje más próximo, y secciones para
-// viajes futuros, pasados, e invitaciones pendientes.
-// ============================================================================
-
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Calendar, Plus, X, Globe, Users, User, Check, Clock } from 'lucide-react';
+import { Plane, Calendar, Plus, X, Globe, Users, User } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import NewTripModal from '../components/NewTripModal';
@@ -23,7 +16,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, tripId: null, destination: '' });
   const [pendingFriends, setPendingFriends] = useState(0);
-  const [pendingInvites, setPendingInvites] = useState([]);
+  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
   const [tripParticipants, setTripParticipants] = useState({});
 
   useEffect(() => {
@@ -39,6 +32,14 @@ export default function Dashboard() {
       .eq('friend_id', user.id)
       .eq('status', 'pending');
     setPendingFriends(fc || 0);
+
+    // Count pending trip invites for badge on profile icon
+    const { count: ic } = await supabase
+      .from('trip_participants')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
+    setPendingInvitesCount(ic || 0);
   };
 
   const fetchTrips = async () => {
@@ -63,15 +64,6 @@ export default function Dashboard() {
 
       if (participantError) throw participantError;
 
-      // 3. Fetch pending invites with trip info
-      const { data: inviteData, error: inviteError } = await supabase
-        .from('trip_participants')
-        .select('id, trip_id, trips(*)')
-        .eq('user_id', user.id)
-        .eq('status', 'pending');
-
-      if (inviteError) throw inviteError;
-
       // Combine owned + accepted trips, avoiding duplicates
       const ownedIds = new Set((ownedData || []).map(t => t.id));
       const acceptedTrips = (participantData || [])
@@ -82,19 +74,28 @@ export default function Dashboard() {
         .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
       setTrips(allTrips);
-      setPendingInvites((inviteData || []).filter(inv => inv.trips));
 
       const next = allTrips.find(t => new Date(t.start_date) > new Date());
       setUpcomingTrip(next);
 
-      // Fetch participants for all trips
+      // Fetch participants for all trips (accepted) + owner profiles
       if (allTrips.length > 0) {
         const tripIds = allTrips.map(t => t.id);
         const { data: pData } = await supabase
           .from('trip_participants')
-          .select('trip_id, status, profiles:user_id(full_name, email)')
+          .select('trip_id, user_id, profiles:user_id(id, full_name, email)')
           .in('trip_id', tripIds)
           .eq('status', 'accepted');
+
+        // Fetch owner profiles for trips where owner may not be in trip_participants
+        const ownerIds = [...new Set(allTrips.map(t => t.owner_id))];
+        const { data: ownerProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', ownerIds);
+
+        const ownerMap = {};
+        (ownerProfiles || []).forEach(p => { ownerMap[p.id] = p; });
 
         if (pData) {
           const byTrip = {};
@@ -102,6 +103,16 @@ export default function Dashboard() {
             if (!byTrip[p.trip_id]) byTrip[p.trip_id] = [];
             byTrip[p.trip_id].push(p.profiles);
           });
+
+          // Ensure owner always appears first in each trip
+          allTrips.forEach(trip => {
+            if (!byTrip[trip.id]) byTrip[trip.id] = [];
+            const alreadyHasOwner = byTrip[trip.id].some(p => p?.id === trip.owner_id);
+            if (!alreadyHasOwner && ownerMap[trip.owner_id]) {
+              byTrip[trip.id].unshift(ownerMap[trip.owner_id]);
+            }
+          });
+
           setTripParticipants(byTrip);
         }
       }
@@ -109,32 +120,6 @@ export default function Dashboard() {
       console.error('Error fetching trips:', error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAcceptInvite = async (participantRowId, tripId) => {
-    try {
-      const { error } = await supabase
-        .from('trip_participants')
-        .update({ status: 'accepted' })
-        .eq('id', participantRowId);
-      if (error) throw error;
-      await fetchTrips();
-    } catch (error) {
-      console.error('Error aceptando invitación:', error.message);
-    }
-  };
-
-  const handleRejectInvite = async (participantRowId) => {
-    try {
-      const { error } = await supabase
-        .from('trip_participants')
-        .delete()
-        .eq('id', participantRowId);
-      if (error) throw error;
-      await fetchTrips();
-    } catch (error) {
-      console.error('Error rechazando invitación:', error.message);
     }
   };
 
@@ -289,6 +274,16 @@ export default function Dashboard() {
                 <User size={20} />
               )}
             </button>
+            {pendingInvitesCount > 0 && (
+              <span style={{
+                position: 'absolute', top: '-4px', right: '-4px',
+                background: '#e74c3c', color: 'white',
+                borderRadius: '50%', width: '18px', height: '18px',
+                fontSize: '0.7rem', fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                pointerEvents: 'none'
+              }}>{pendingInvitesCount}</span>
+            )}
           </Link>
 
           <button className="btn-primary" onClick={() => {
@@ -300,57 +295,6 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Invitaciones Pendientes */}
-      {pendingInvites.length > 0 && (
-        <section className="glass-panel" style={{
-          padding: 'var(--spacing-lg)',
-          marginBottom: 'var(--spacing-xl)',
-          borderLeft: '4px solid var(--color-primary)'
-        }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-md)', fontSize: '1.2rem' }}>
-            <Clock size={20} color="var(--color-primary)" /> Invitaciones Pendientes
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            {pendingInvites.map(inv => (
-              <div key={inv.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'var(--color-surface)', borderRadius: 'var(--border-radius)',
-                padding: 'var(--spacing-sm) var(--spacing-md)',
-                border: '1px solid var(--color-border)'
-              }}>
-                <div>
-                  <span style={{ fontWeight: 600, color: 'var(--color-text-main)' }}>{inv.trips?.destination}</span>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginLeft: '10px' }}>
-                    {inv.trips?.start_date ? new Date(inv.trips.start_date).toLocaleDateString() : ''}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleAcceptInvite(inv.id, inv.trip_id)}
-                    style={{
-                      background: 'rgba(46, 204, 113, 0.15)', border: '1px solid rgba(46,204,113,0.4)',
-                      color: '#2ecc71', borderRadius: '20px', padding: '6px 16px',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, fontSize: '0.85rem'
-                    }}
-                  >
-                    <Check size={14} /> Aceptar
-                  </button>
-                  <button
-                    onClick={() => handleRejectInvite(inv.id)}
-                    style={{
-                      background: 'rgba(231, 76, 60, 0.15)', border: '1px solid rgba(231,76,60,0.4)',
-                      color: '#e74c3c', borderRadius: '20px', padding: '6px 16px',
-                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, fontSize: '0.85rem'
-                    }}
-                  >
-                    <X size={14} /> Rechazar
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* SECCIÓN 1: Próximo Viaje */}
       {upcomingTrip ? (

@@ -174,15 +174,23 @@ export default function TripAccommodations({ tripId }) {
                   {new Date(acc.check_out).toLocaleDateString([], {day:'2-digit', month: 'short'})}
                 </span>
 
-                {/* Horas de entrada/salida */}
-                {(acc.check_in_time || acc.check_out_time) && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    🕐
-                    {acc.check_in_time && <span>Entrada: <strong>{acc.check_in_time}</strong></span>}
-                    {acc.check_in_time && acc.check_out_time && <span style={{ margin: '0 4px' }}>·</span>}
-                    {acc.check_out_time && <span>Salida: <strong>{acc.check_out_time}</strong></span>}
-                  </span>
-                )}
+                {/* Horas de entrada/salida extraídas del datetime */}
+                {(() => {
+                  const inTime = acc.check_in ? new Date(acc.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+                  const outTime = acc.check_out ? new Date(acc.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : null;
+                  // Only show if time is not midnight (00:00) — means user actually set a time
+                  const showIn = inTime && inTime !== '00:00';
+                  const showOut = outTime && outTime !== '00:00';
+                  if (!showIn && !showOut) return null;
+                  return (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      🕐
+                      {showIn && <span>Entrada: <strong>{inTime}</strong></span>}
+                      {showIn && showOut && <span style={{ margin: '0 4px' }}>·</span>}
+                      {showOut && <span>Salida: <strong>{outTime}</strong></span>}
+                    </span>
+                  );
+                })()}
                 
                 {/* Notas/Ubicación */}
                 {acc.notes && (
