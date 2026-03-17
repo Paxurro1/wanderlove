@@ -145,30 +145,39 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
 
       if (result.error) throw result.error;
       
-      // Auto-sync with expenses if price is > 0
-      if (!editingRental && formData.price && parseFloat(formData.price) > 0) {
-        const expenseData = {
+      if (result.error) throw result.error;
+      
+      const savedRentalId = result.data[0].id;
+
+      // --- SYNC EXPENSES ---
+      // 1. Delete existing expenses for this rental (if any) to avoid duplicates/stale data
+      const { error: delError } = await supabase.from('expenses').delete().eq('source_id', savedRentalId);
+      if (delError) console.warn("Error deleting synced expenses:", delError.message);
+
+      // 2. Add Rental Price Expense
+      if (formData.price && parseFloat(formData.price) > 0) {
+        const { error: expError } = await supabase.from('expenses').insert([{
           trip_id: tripId,
           description: `Alquiler Coche: ${formData.car_model}`,
           amount: parseFloat(formData.price),
           category: 'Transporte',
-          source_id: result.data[0].id,
+          source_id: savedRentalId,
           paid_by: user.id
-        };
-        await supabase.from('expenses').insert([expenseData]);
+        }]);
+        if (expError) console.error("Error syncing rental price expense:", expError.message);
       }
       
-      // Also sync gas cost if provided initially
-      if (!editingRental && formData.gas_cost && parseFloat(formData.gas_cost) > 0) {
-        const gasExpense = {
+      // 3. Add Gas Cost Expense
+      if (formData.gas_cost && parseFloat(formData.gas_cost) > 0) {
+        const { error: gasError } = await supabase.from('expenses').insert([{
           trip_id: tripId,
           description: `Gasolina: ${formData.car_model}`,
           amount: parseFloat(formData.gas_cost),
           category: 'Transporte',
-          source_id: result.data[0].id,
+          source_id: savedRentalId,
           paid_by: user.id
-        };
-        await supabase.from('expenses').insert([gasExpense]);
+        }]);
+        if (gasError) console.error("Error syncing gas expense:", gasError.message);
       }
       
       onRentalAdded(result.data[0]);
