@@ -16,6 +16,7 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
   const [loading, setLoading] = useState(false);
   const [friends, setFriends] = useState([]);
   const [selectedFriends, setSelectedFriends] = useState([]);
+  const [existingParticipants, setExistingParticipants] = useState([]);
   const [showFriendsList, setShowFriendsList] = useState(false);
   
   // -- ESTADO DEL FORMULARIO --
@@ -44,10 +45,12 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
           end_date: formatForInput(editingTrip.end_date),
           cover_image: editingTrip.cover_image || ''
         });
+        setSelectedFriends([]);
         fetchParticipants(editingTrip.id);
       } else {
         setFormData({ destination: '', start_date: '', end_date: '', cover_image: '' });
         setSelectedFriends([]);
+        setExistingParticipants([]);
       }
       fetchFriends();
     }
@@ -83,7 +86,9 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
         .from('trip_participants')
         .select('user_id')
         .eq('trip_id', tripId);
-      if (data) setSelectedFriends(data.map(p => p.user_id));
+      if (data) {
+        setExistingParticipants(data.map(p => p.user_id));
+      }
     } catch (error) {
       console.error('Error fetching participants:', error);
     }
@@ -136,24 +141,26 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
       const tripId = result.data[0].id;
       
       if (tripId) {
-        // Delete existing participants to simplify update
-        await supabase.from('trip_participants').delete().eq('trip_id', tripId);
+        // If it's a new trip, ensure the owner is added as an accepted participant
+        if (!editingTrip) {
+          await supabase.from('trip_participants').insert([
+            { trip_id: tripId, user_id: user.id, status: 'accepted' }
+          ]);
+        }
 
-        // Always insert the owner as accepted participant
-        const participantsToInsert = [
-          { trip_id: tripId, user_id: user.id, status: 'accepted' }
-        ];
-
-        // Add invited friends with pending status
+        // Add newly invited friends with pending status
         if (selectedFriends.length > 0) {
+          const participantsToInsert = [];
           selectedFriends.forEach(friendId => {
             if (friendId !== user.id) {
               participantsToInsert.push({ trip_id: tripId, user_id: friendId, status: 'pending' });
             }
           });
+          
+          if (participantsToInsert.length > 0) {
+            await supabase.from('trip_participants').insert(participantsToInsert);
+          }
         }
-
-        await supabase.from('trip_participants').insert(participantsToInsert);
       }
 
       // -- GEOLOCALIZACIÓN AUTOMÁTICA DEL DESTINO --
@@ -283,10 +290,12 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                 border: '1px solid var(--color-border)',
                 marginBottom: '10px'
               }}>
-                {friends.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', textAlign: 'center', margin: '10px 0' }}>No tienes amigos agregados</p>
+                {friends.filter(f => !existingParticipants.includes(f.id)).length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', textAlign: 'center', margin: '10px 0' }}>No tienes más amigos para invitar</p>
                 ) : (
-                  friends.map(friend => (
+                  friends
+                    .filter(f => !existingParticipants.includes(f.id))
+                    .map(friend => (
                     <div 
                       key={friend.id} 
                       onClick={() => toggleFriend(friend.id)}
