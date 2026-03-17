@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
@@ -53,9 +53,6 @@ export default function TripDetails() {
 
   // Estado para el modal de confirmación de borrado
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, placeId: null, placeName: '' });
-  
-  // Drag and Drop State
-  const [draggedPlace, setDraggedPlace] = useState(null);
 
   // -- EFECTOS --
   useEffect(() => {
@@ -233,79 +230,38 @@ export default function TripDetails() {
 
         const sortedDays = Object.keys(placesGrouped).sort((a,b) => Number(a) - Number(b));
 
-        // Handlers para Drag and Drop
-        const onDragStart = (e, place) => {
-          setDraggedPlace(place);
-          e.dataTransfer.effectAllowed = 'move';
-          // Un pequeño timeout para que el elemento original se vea semitransparente
-          setTimeout(() => {
-            if (e.target) e.target.style.opacity = '0.5';
-          }, 0);
-        };
-
-        const onDragEnd = (e) => {
-          if (e.target) e.target.style.opacity = '1';
-          setDraggedPlace(null);
-        };
-
-        const onDragOver = (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-        };
-
-        const onDropOnDay = async (e, targetDayStr) => {
-          e.preventDefault();
-          if (!draggedPlace) return;
-
-          const targetDay = parseInt(targetDayStr, 10);
+        const movePlace = async (place, direction) => {
+          const dayId = place.day_index || 1;
+          const itemsInDay = [...(placesGrouped[dayId] || [])];
+          const currentIndex = itemsInDay.findIndex(p => p.id === place.id);
           
-          // Determine index to insert at
-          const itemsInDay = placesGrouped[targetDayStr] || [];
-          let insertIndex = itemsInDay.length; // Default to end
-
-          // Try to find if we dropped ON a specific item
-          const dropTarget = e.target.closest('[data-place-id]');
-          if (dropTarget) {
-            const targetId = parseInt(dropTarget.getAttribute('data-place-id'), 10);
-            const targetRect = dropTarget.getBoundingClientRect();
-            const dropY = e.clientY - targetRect.top;
-            const targetIndex = itemsInDay.findIndex(p => p.id === targetId);
-            
-            // If dropped in top half, insert before. Bottom half, insert after.
-            if (dropY < targetRect.height / 2) {
-              insertIndex = targetIndex;
-            } else {
-              insertIndex = targetIndex + 1;
-            }
+          if (direction === 'up' && currentIndex > 0) {
+            // Swap with previous
+            const temp = itemsInDay[currentIndex - 1];
+            itemsInDay[currentIndex - 1] = itemsInDay[currentIndex];
+            itemsInDay[currentIndex] = temp;
+          } else if (direction === 'down' && currentIndex < itemsInDay.length - 1) {
+            // Swap with next
+            const temp = itemsInDay[currentIndex + 1];
+            itemsInDay[currentIndex + 1] = itemsInDay[currentIndex];
+            itemsInDay[currentIndex] = temp;
+          } else {
+            return; // No movement possible
           }
 
-          // Remove from old position if same day
-          let newItemsInDay = [...itemsInDay];
-          if (draggedPlace.day_index === targetDay) {
-            const currentIndex = newItemsInDay.findIndex(p => p.id === draggedPlace.id);
-            if (currentIndex !== -1) {
-              newItemsInDay.splice(currentIndex, 1);
-              if (insertIndex > currentIndex) insertIndex--; // Adjust after removal
-            }
-          }
-
-          // Insert at new position
-          newItemsInDay.splice(insertIndex, 0, { ...draggedPlace, day_index: targetDay });
-
-          // Assign new order indices
-          newItemsInDay = newItemsInDay.map((p, idx) => ({ ...p, order_index: idx }));
-
-          // Update local state instantly for snappy UI
-          const updatedPlaces = places.map(p => {
-            const inNewDay = newItemsInDay.find(np => np.id === p.id);
-            if (inNewDay) return inNewDay;
-            return p;
+          // Update order_index
+          const updatedItems = itemsInDay.map((p, idx) => ({ ...p, order_index: idx }));
+          
+          // Optimistic local update
+          const newAllPlaces = places.map(p => {
+            const up = updatedItems.find(u => u.id === p.id);
+            return up ? up : p;
           });
-          setPlaces(updatedPlaces);
+          setPlaces(newAllPlaces);
 
+          // Background DB update
           try {
-            // Optimistic update in DB for all affected items in that day
-            const updates = newItemsInDay.map(p => ({
+            const updates = updatedItems.map(p => ({
               id: p.id,
               trip_id: p.trip_id,
               name: p.name,
@@ -313,16 +269,13 @@ export default function TripDetails() {
               lat: p.lat,
               lng: p.lng,
               visited: p.visited,
-              day_index: targetDay,
+              day_index: p.day_index,
               order_index: p.order_index
             }));
-            
             const { error } = await supabase.from('places').upsert(updates);
             if (error) throw error;
           } catch (error) {
-            console.error('Error al mover el plan:', error);
-            // Revert state if error
-            fetchTripAndData(); 
+            console.error('Error guardando el nuevo orden:', error);
           }
         };
 
@@ -352,10 +305,8 @@ export default function TripDetails() {
                     key={dayStr} 
                     style={{ 
                       marginBottom: 'var(--spacing-xl)',
-                      minHeight: '80px' // Ensure empty days can be dropped into
+                      minHeight: '80px'
                     }}
-                    onDragOver={onDragOver}
-                    onDrop={(e) => onDropOnDay(e, dayStr)}
                   >
                     <div style={{ position: 'relative', marginBottom: 'var(--spacing-md)' }}>
                       <div style={{ position: 'absolute', left: '-33px', top: '0', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--color-primary)', border: '3px solid var(--color-surface)' }}></div>
@@ -374,26 +325,43 @@ export default function TripDetails() {
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                      {placesGrouped[dayStr].map(place => (
+                      {placesGrouped[dayStr].map((place, index) => (
                         <div 
                           key={place.id} 
                           data-place-id={place.id}
-                          draggable="true"
-                          onDragStart={(e) => onDragStart(e, place)}
-                          onDragEnd={onDragEnd}
                           style={{ 
                             background: 'var(--color-surface)', padding: 'var(--spacing-md)', 
                             borderRadius: 'var(--border-radius)', border: '1px solid var(--color-border)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                            cursor: 'grab'
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                           }}
                         >
-                          <div style={{ pointerEvents: 'none' }}>
+                          <div>
                             <div style={{ fontWeight: 600 }}>{place.name}</div>
                             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                             <button 
+                            <div style={{ display: 'flex', flexDirection: 'column', marginRight: '4px' }}>
+                              <button 
+                                onClick={() => movePlace(place, 'up')}
+                                disabled={index === 0}
+                                style={{ background: 'transparent', border: 'none', padding: '0', color: index === 0 ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: index === 0 ? 'default' : 'pointer' }}
+                                title="Subir"
+                              >
+                                <ChevronUp size={18} />
+                              </button>
+                              <button 
+                                onClick={() => movePlace(place, 'down')}
+                                disabled={index === placesGrouped[dayStr].length - 1}
+                                style={{ background: 'transparent', border: 'none', padding: '0', color: index === placesGrouped[dayStr].length - 1 ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: index === placesGrouped[dayStr].length - 1 ? 'default' : 'pointer', marginTop: '-4px' }}
+                                title="Bajar"
+                              >
+                                <ChevronDown size={18} />
+                              </button>
+                            </div>
+                            
+                            <div style={{ width: '1px', height: '24px', background: 'var(--color-border)', margin: '0 4px' }}></div>
+                            
+                            <button 
                               onClick={() => {
                                 setEditingPlace(place);
                                 setIsPlaceModalOpen(true);
