@@ -28,17 +28,24 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
           
           if (error) throw error;
           
-          const { data: tripData, error: tripError } = await supabase
+          const allParticipants = data ? data.map(p => p.profiles).filter(Boolean) : [];
+          
+          const { data: tripInfo, error: tripInfoError } = await supabase
             .from('trips')
-            .select('profiles:owner_id(id, full_name)')
+            .select('owner_id')
             .eq('id', tripId)
             .single();
             
-          if (tripError && tripError.code !== 'PGRST116') throw tripError;
-
-          const allParticipants = data ? data.map(p => p.profiles).filter(Boolean) : [];
-          if (tripData?.profiles && !allParticipants.some(p => p.id === tripData.profiles.id)) {
-            allParticipants.push(tripData.profiles);
+          if (!tripInfoError && tripInfo?.owner_id) {
+            const { data: ownerProfile } = await supabase
+              .from('profiles')
+              .select('id, full_name')
+              .eq('id', tripInfo.owner_id)
+              .single();
+              
+            if (ownerProfile && !allParticipants.some(p => p.id === ownerProfile.id)) {
+              allParticipants.push(ownerProfile);
+            }
           }
           setParticipants(allParticipants);
         } catch (error) {
