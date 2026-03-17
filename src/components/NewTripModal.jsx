@@ -290,11 +290,11 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                 border: '1px solid var(--color-border)',
                 marginBottom: '10px'
               }}>
-                {friends.filter(f => !existingParticipants.includes(f.id)).length === 0 ? (
+                {friends.filter(f => !existingParticipants.includes(f.id) && f.id !== user.id && (!editingTrip || f.id !== editingTrip.owner_id)).length === 0 ? (
                   <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', textAlign: 'center', margin: '10px 0' }}>No tienes más amigos para invitar</p>
                 ) : (
                   friends
-                    .filter(f => !existingParticipants.includes(f.id))
+                    .filter(f => !existingParticipants.includes(f.id) && f.id !== user.id && (!editingTrip || f.id !== editingTrip.owner_id))
                     .map(friend => (
                     <div 
                       key={friend.id} 
