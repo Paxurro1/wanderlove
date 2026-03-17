@@ -231,14 +231,14 @@ export default function Dashboard() {
   return (
     <div className="container animate-fade-in" style={{ paddingTop: 'var(--spacing-2xl)', paddingBottom: 'var(--spacing-2xl)' }}>
       {/* Cabecera Principal */}
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
-        <div>
-          <h1 className="text-gradient" style={{ fontSize: '3rem', marginBottom: 'var(--spacing-xs)' }}>WanderLove</h1>
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '1.2rem' }}>
+      <header style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-lg)', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
+        <div style={{ flex: '1 1 250px' }}>
+          <h1 className="text-gradient" style={{ fontSize: 'clamp(2.5rem, 8vw, 3.5rem)', margin: '0 0 var(--spacing-xs) 0', lineHeight: 1.1 }}>WanderLove</h1>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: 'clamp(1rem, 4vw, 1.2rem)' }}>
             Nuestras aventuras, recuerdos y planes.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', flex: '1 1 auto' }}>
           <Link to="/adventures-map">
             <button className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--spacing-sm) var(--spacing-md)' }}>
               <Globe size={18} /> Mapa
