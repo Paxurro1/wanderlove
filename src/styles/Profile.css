@@ -13,6 +13,30 @@
   border-radius: 20px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .profile-header {
+    flex-direction: column;
+    padding: 20px;
+    text-align: center;
+  }
+  
+  .profile-header > div {
+    flex-direction: column;
+  }
+  
+  .profile-info {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .btn-logout {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 .profile-info {
