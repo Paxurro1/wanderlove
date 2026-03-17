@@ -235,14 +235,14 @@ export default function TripPhotos({ tripId }) {
                   onClick={() => handleDelete(photo)}
                   style={{
                     position: 'absolute', top: '6px', right: '6px',
-                    background: 'rgba(231,76,60,0.8)', border: 'none',
+                    background: 'rgba(231,76,60,0.9)', border: 'none',
                     color: 'white', borderRadius: '50%', width: '28px', height: '28px',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', opacity: 0,
-                    transition: 'opacity 0.2s'
+                    cursor: 'pointer', opacity: 1,
+                    transition: 'transform 0.1s'
                   }}
-                  onMouseOver={e => e.currentTarget.style.opacity = '1'}
-                  onMouseOut={e => e.currentTarget.style.opacity = '0'}
+                  onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
                   title="Borrar foto"
                 >
                   <Trash2 size={12} />

@@ -254,7 +254,18 @@ export default function TripDetails() {
                   <div key={dayStr} style={{ marginBottom: 'var(--spacing-xl)' }}>
                     <div style={{ position: 'relative', marginBottom: 'var(--spacing-md)' }}>
                       <div style={{ position: 'absolute', left: '-33px', top: '0', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--color-primary)', border: '3px solid var(--color-surface)' }}></div>
-                      <h4 style={{ margin: 0 }}>Día {dayStr}</h4>
+                      <h4 style={{ margin: 0 }}>
+                        Día {dayStr}
+                        {trip.start_date && (() => {
+                          const d = new Date(trip.start_date);
+                          d.setDate(d.getDate() + parseInt(dayStr) - 1);
+                          return (
+                            <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.9rem', marginLeft: '8px' }}>
+                              – {d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}
+                            </span>
+                          );
+                        })()}
+                      </h4>
                     </div>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
@@ -435,6 +446,8 @@ export default function TripDetails() {
         isOpen={isPlaceModalOpen} 
         onClose={() => setIsPlaceModalOpen(false)} 
         tripId={trip.id}
+        tripStartDate={trip.start_date}
+        tripEndDate={trip.end_date}
         onPlaceAdded={handlePlaceAdded}
         editingPlace={editingPlace}
         modalTitle={modalTitle}
