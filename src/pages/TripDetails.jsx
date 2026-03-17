@@ -52,11 +52,10 @@ export default function TripDetails() {
   const [modalTitle, setModalTitle] = useState('Añadir al Itinerario');
 
   // Estado para el modal de confirmación de borrado
-  const [confirmModal, setConfirmModal] = useState({
-    isOpen: false,
-    placeId: null,
-    placeName: ''
-  });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, placeId: null, placeName: '' });
+  
+  // Drag and Drop State
+  const [draggedPlace, setDraggedPlace] = useState(null);
 
   // -- EFECTOS --
   useEffect(() => {
@@ -227,7 +226,105 @@ export default function TripDetails() {
           return acc;
         }, {});
 
+        // Sort places loosely by 'order_index' if it existed, or just keep them as they are
+        Object.keys(placesGrouped).forEach(day => {
+          placesGrouped[day].sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        });
+
         const sortedDays = Object.keys(placesGrouped).sort((a,b) => Number(a) - Number(b));
+
+        // Handlers para Drag and Drop
+        const onDragStart = (e, place) => {
+          setDraggedPlace(place);
+          e.dataTransfer.effectAllowed = 'move';
+          // Un pequeño timeout para que el elemento original se vea semitransparente
+          setTimeout(() => {
+            if (e.target) e.target.style.opacity = '0.5';
+          }, 0);
+        };
+
+        const onDragEnd = (e) => {
+          if (e.target) e.target.style.opacity = '1';
+          setDraggedPlace(null);
+        };
+
+        const onDragOver = (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        };
+
+        const onDropOnDay = async (e, targetDayStr) => {
+          e.preventDefault();
+          if (!draggedPlace) return;
+
+          const targetDay = parseInt(targetDayStr, 10);
+          
+          // Determine index to insert at
+          const itemsInDay = placesGrouped[targetDayStr] || [];
+          let insertIndex = itemsInDay.length; // Default to end
+
+          // Try to find if we dropped ON a specific item
+          const dropTarget = e.target.closest('[data-place-id]');
+          if (dropTarget) {
+            const targetId = parseInt(dropTarget.getAttribute('data-place-id'), 10);
+            const targetRect = dropTarget.getBoundingClientRect();
+            const dropY = e.clientY - targetRect.top;
+            const targetIndex = itemsInDay.findIndex(p => p.id === targetId);
+            
+            // If dropped in top half, insert before. Bottom half, insert after.
+            if (dropY < targetRect.height / 2) {
+              insertIndex = targetIndex;
+            } else {
+              insertIndex = targetIndex + 1;
+            }
+          }
+
+          // Remove from old position if same day
+          let newItemsInDay = [...itemsInDay];
+          if (draggedPlace.day_index === targetDay) {
+            const currentIndex = newItemsInDay.findIndex(p => p.id === draggedPlace.id);
+            if (currentIndex !== -1) {
+              newItemsInDay.splice(currentIndex, 1);
+              if (insertIndex > currentIndex) insertIndex--; // Adjust after removal
+            }
+          }
+
+          // Insert at new position
+          newItemsInDay.splice(insertIndex, 0, { ...draggedPlace, day_index: targetDay });
+
+          // Assign new order indices
+          newItemsInDay = newItemsInDay.map((p, idx) => ({ ...p, order_index: idx }));
+
+          // Update local state instantly for snappy UI
+          const updatedPlaces = places.map(p => {
+            const inNewDay = newItemsInDay.find(np => np.id === p.id);
+            if (inNewDay) return inNewDay;
+            return p;
+          });
+          setPlaces(updatedPlaces);
+
+          try {
+            // Optimistic update in DB for all affected items in that day
+            const updates = newItemsInDay.map(p => ({
+              id: p.id,
+              trip_id: p.trip_id,
+              name: p.name,
+              reason: p.reason,
+              lat: p.lat,
+              lng: p.lng,
+              visited: p.visited,
+              day_index: targetDay,
+              order_index: p.order_index
+            }));
+            
+            const { error } = await supabase.from('places').upsert(updates);
+            if (error) throw error;
+          } catch (error) {
+            console.error('Error al mover el plan:', error);
+            // Revert state if error
+            fetchTripAndData(); 
+          }
+        };
 
         return (
           <div className="glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
@@ -251,7 +348,15 @@ export default function TripDetails() {
             ) : (
               <div style={{ borderLeft: '3px solid var(--color-primary)', paddingLeft: 'var(--spacing-lg)' }}>
                 {sortedDays.map(dayStr => (
-                  <div key={dayStr} style={{ marginBottom: 'var(--spacing-xl)' }}>
+                  <div 
+                    key={dayStr} 
+                    style={{ 
+                      marginBottom: 'var(--spacing-xl)',
+                      minHeight: '80px' // Ensure empty days can be dropped into
+                    }}
+                    onDragOver={onDragOver}
+                    onDrop={(e) => onDropOnDay(e, dayStr)}
+                  >
                     <div style={{ position: 'relative', marginBottom: 'var(--spacing-md)' }}>
                       <div style={{ position: 'absolute', left: '-33px', top: '0', width: '16px', height: '16px', borderRadius: '50%', background: 'var(--color-primary)', border: '3px solid var(--color-surface)' }}></div>
                       <h4 style={{ margin: 0 }}>
@@ -270,12 +375,20 @@ export default function TripDetails() {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                       {placesGrouped[dayStr].map(place => (
-                        <div key={place.id} style={{ 
-                          background: 'var(--color-surface)', padding: 'var(--spacing-md)', 
-                          borderRadius: 'var(--border-radius)', border: '1px solid var(--color-border)',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                        }}>
-                          <div>
+                        <div 
+                          key={place.id} 
+                          data-place-id={place.id}
+                          draggable="true"
+                          onDragStart={(e) => onDragStart(e, place)}
+                          onDragEnd={onDragEnd}
+                          style={{ 
+                            background: 'var(--color-surface)', padding: 'var(--spacing-md)', 
+                            borderRadius: 'var(--border-radius)', border: '1px solid var(--color-border)',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            cursor: 'grab'
+                          }}
+                        >
+                          <div style={{ pointerEvents: 'none' }}>
                             <div style={{ fontWeight: 600 }}>{place.name}</div>
                             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</div>
                           </div>
