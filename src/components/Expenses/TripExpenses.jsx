@@ -18,8 +18,8 @@ export default function TripExpenses({ tripId }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   // editingExpense: Gasto que se está editando actualmente.
   const [editingExpense, setEditingExpense] = useState(null);
-  // loading: Estado de carga mientras se obtienen los datos de Supabase.
   const [loading, setLoading] = useState(true);
+  const [participants, setParticipants] = useState([]);
 
   // Estado para el modal de confirmación de borrado
   const [confirmModal, setConfirmModal] = useState({
@@ -34,17 +34,31 @@ export default function TripExpenses({ tripId }) {
     fetchExpenses();
   }, [tripId]);
 
-  // Función para obtener los gastos desde la base de datos de Supabase.
+  // Función para obtener los gastos y participantes
   const fetchExpenses = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch Expenses
+      const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('*')
+        .select('*, profiles:paid_by(full_name, avatar_url)')
         .eq('trip_id', tripId)
-        .order('created_at', { ascending: false }); // Los más nuevos primero.
+        .order('created_at', { ascending: false });
         
-      if (error) throw error;
-      setExpenses(data || []);
+      if (expensesError) throw expensesError;
+      setExpenses(expensesData || []);
+
+      // 2. Fetch Participants for Balances
+      const { data: participantsData, error: participantsError } = await supabase
+        .from('trip_participants')
+        .select('profiles:user_id(id, full_name, avatar_url)')
+        .eq('trip_id', tripId)
+        .eq('status', 'accepted');
+        
+      if (participantsError) throw participantsError;
+      if (participantsData) {
+        setParticipants(participantsData.map(p => p.profiles).filter(Boolean));
+      }
+
     } catch (error) {
       console.error('Error al obtener gastos:', error.message);
     } finally {
@@ -145,6 +159,69 @@ export default function TripExpenses({ tripId }) {
         </div>
       </div>
 
+      {/* --- SECCIÓN BALANCES --- */}
+      {participants.length > 0 && totalAmount > 0 && (
+        <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+          <h4 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Balances</h4>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+            gap: 'var(--spacing-sm)' 
+          }}>
+            {(() => {
+              const sharePerPerson = totalAmount / participants.length;
+              
+              // Map de gastos por usuario
+              const paidByUser = {};
+              participants.forEach(p => paidByUser[p.id] = 0);
+              
+              expenses.forEach(exp => {
+                if (exp.paid_by && paidByUser[exp.paid_by] !== undefined) {
+                  paidByUser[exp.paid_by] += Number(exp.amount) || 0;
+                }
+              });
+
+              return participants.map(p => {
+                const paid = paidByUser[p.id];
+                const balance = paid - sharePerPerson;
+                const isOwed = balance > 0;
+                const isEven = Math.abs(balance) < 0.01;
+                
+                let textColor = 'var(--color-text-muted)';
+                if (!isEven) {
+                  textColor = isOwed ? '#38a169' : '#e53e3e'; // Verde si le deben, Rojo si debe
+                }
+
+                return (
+                  <div key={p.id} style={{ 
+                    background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                    padding: 'var(--spacing-md)', borderRadius: 'var(--border-radius)',
+                    display: 'flex', flexDirection: 'column', gap: '8px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img 
+                        src={p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.full_name)}&background=random`} 
+                        alt={p.full_name} 
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                      <span style={{ fontWeight: 500, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {p.full_name.split(' ')[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Pagó: {paid.toFixed(2)}€</div>
+                      <div style={{ fontWeight: 'bold', color: textColor, marginTop: '2px' }}>
+                        {isEven ? 'En paz' : (isOwed ? `Le deben ${balance.toFixed(2)}€` : `Debe ${Math.abs(balance).toFixed(2)}€`)}
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Lista/Historial de gastos individuales */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
         <h4 style={{ margin: 'var(--spacing-md) 0 var(--spacing-sm) 0' }}>Historial</h4>
@@ -166,6 +243,16 @@ export default function TripExpenses({ tripId }) {
               <div>
                 <div style={{ fontWeight: 600 }}>{exp.category}</div>
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{exp.description}</div>
+                {exp.profiles && (
+                  <div style={{ 
+                    display: 'flex', alignItems: 'center', gap: '4px', 
+                    fontSize: '0.75rem', color: 'var(--color-text-muted)', 
+                    marginTop: '4px', background: 'var(--color-bg)',
+                    padding: '2px 8px', borderRadius: '10px', width: 'fit-content'
+                  }}>
+                    Pagado por <span style={{ fontWeight: 600 }}>{exp.profiles.full_name.split(' ')[0]}</span>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ textAlign: 'right' }}>

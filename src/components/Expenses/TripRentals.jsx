@@ -32,8 +32,15 @@ export default function TripRentals({ tripId, trip }) {
   };
 
   const handleDelete = async (rentalId) => {
-    if (!window.confirm('¿Seguro que quieres borrar este alquiler?')) return;
+    if (!window.confirm('¿Seguro que quieres borrar este alquiler? Se borrarán también los gastos financieros asociados.')) return;
     try {
+      // 1. Borrar gastos asociados basándonos en el source_id
+      await supabase
+        .from('expenses')
+        .delete()
+        .eq('source_id', rentalId);
+
+      // 2. Borrar el alquiler
       const { error } = await supabase
         .from('trip_rentals')
         .delete()

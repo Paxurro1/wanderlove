@@ -1,15 +1,43 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X } from 'lucide-react';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdded, editingExpense }) {
+  const { user } = useAuth();
   // --- ESTADO DEL FORMULARIO ---
   const [loading, setLoading] = useState(false);
+  const [participants, setParticipants] = useState([]);
   const [formData, setFormData] = useState({
     category: '',    // Categoría del gasto (Vuelos, Comida, etc.)
     amount: '',      // Importe numérico
-    description: ''  // Nota adicional descriptiva
+    description: '', // Nota adicional descriptiva
+    paid_by: user?.id || '' // Quién pagó
   });
+
+  // Fetch participants when modal opens
+  useEffect(() => {
+    if (isOpen && tripId) {
+      const fetchParticipants = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('trip_participants')
+            .select('profiles:user_id(id, full_name)')
+            .eq('trip_id', tripId)
+            .eq('status', 'accepted');
+          
+          if (error) throw error;
+          if (data) {
+            setParticipants(data.map(p => p.profiles).filter(Boolean));
+          }
+        } catch (error) {
+          console.error("Error fetching participants:", error);
+        }
+      };
+      
+      fetchParticipants();
+    }
+  }, [isOpen, tripId]);
 
   // Efecto para cargar los datos del gasto si estamos en modo edición.
   useEffect(() => {
@@ -17,12 +45,13 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
       setFormData({
         category: editingExpense.category || '',
         amount: editingExpense.amount || '',
-        description: editingExpense.description || ''
+        description: editingExpense.description || '',
+        paid_by: editingExpense.paid_by || user?.id || ''
       });
     } else {
-      setFormData({ category: '', amount: '', description: '' });
+      setFormData({ category: '', amount: '', description: '', paid_by: user?.id || '' });
     }
-  }, [editingExpense, isOpen]);
+  }, [editingExpense, isOpen, user?.id]);
 
   // Si el modal no está marcado como abierto, no renderizamos nada (null).
   if (!isOpen) return null;
@@ -41,7 +70,8 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
         trip_id: tripId,
         category: formData.category,
         amount: parseFloat(formData.amount),
-        description: formData.description
+        description: formData.description,
+        paid_by: formData.paid_by || user.id
       };
 
       let result;
@@ -105,6 +135,25 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
               <option value="Transporte Local">Transporte Local (Taxi/Metro)</option>
               <option value="Gasolina">Gasolina</option>
               <option value="Otros">Otros</option>
+            </select>
+          </div>
+          
+          {/* Selector de Pagador */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Pagado por</label>
+            <select 
+              required
+              value={formData.paid_by}
+              onChange={e => setFormData({...formData, paid_by: e.target.value})}
+              style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
+            >
+              {participants.length === 0 ? (
+                 <option value={user?.id || ''}>Cargando...</option>
+              ) : (
+                participants.map(p => (
+                  <option key={p.id} value={p.id}>{p.full_name}</option>
+                ))
+              )}
             </select>
           </div>
           

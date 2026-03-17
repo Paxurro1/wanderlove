@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X, Calendar } from 'lucide-react';
+import { useAuth } from '../../lib/AuthContext';
 
 export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onRentalAdded, editingRental }) {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // -- CALCULATING TRIP DAYS --
@@ -149,7 +151,9 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
           trip_id: tripId,
           description: `Alquiler Coche: ${formData.car_model}`,
           amount: parseFloat(formData.price),
-          category: 'Transporte'
+          category: 'Transporte',
+          source_id: result.data[0].id,
+          paid_by: user.id
         };
         await supabase.from('expenses').insert([expenseData]);
       }
@@ -160,7 +164,9 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
           trip_id: tripId,
           description: `Gasolina: ${formData.car_model}`,
           amount: parseFloat(formData.gas_cost),
-          category: 'Transporte'
+          category: 'Transporte',
+          source_id: result.data[0].id,
+          paid_by: user.id
         };
         await supabase.from('expenses').insert([gasExpense]);
       }
