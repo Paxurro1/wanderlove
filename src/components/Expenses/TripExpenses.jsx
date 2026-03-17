@@ -55,9 +55,21 @@ export default function TripExpenses({ tripId }) {
         .eq('status', 'accepted');
         
       if (participantsError) throw participantsError;
-      if (participantsData) {
-        setParticipants(participantsData.map(p => p.profiles).filter(Boolean));
+      
+      // 3. Fetch Trip Owner to ensure they are always included (for retrocompatibility with older trips)
+      const { data: tripData, error: tripError } = await supabase
+        .from('trips')
+        .select('profiles:owner_id(id, full_name, avatar_url)')
+        .eq('id', tripId)
+        .single();
+        
+      if (tripError && tripError.code !== 'PGRST116') throw tripError;
+
+      const allParticipants = participantsData ? participantsData.map(p => p.profiles).filter(Boolean) : [];
+      if (tripData?.profiles && !allParticipants.some(p => p.id === tripData.profiles.id)) {
+        allParticipants.push(tripData.profiles);
       }
+      setParticipants(allParticipants);
 
     } catch (error) {
       console.error('Error al obtener gastos:', error.message);

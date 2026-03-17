@@ -27,9 +27,20 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
             .eq('status', 'accepted');
           
           if (error) throw error;
-          if (data) {
-            setParticipants(data.map(p => p.profiles).filter(Boolean));
+          
+          const { data: tripData, error: tripError } = await supabase
+            .from('trips')
+            .select('profiles:owner_id(id, full_name)')
+            .eq('id', tripId)
+            .single();
+            
+          if (tripError && tripError.code !== 'PGRST116') throw tripError;
+
+          const allParticipants = data ? data.map(p => p.profiles).filter(Boolean) : [];
+          if (tripData?.profiles && !allParticipants.some(p => p.id === tripData.profiles.id)) {
+            allParticipants.push(tripData.profiles);
           }
+          setParticipants(allParticipants);
         } catch (error) {
           console.error("Error fetching participants:", error);
         }
