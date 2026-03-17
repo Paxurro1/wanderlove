@@ -81,7 +81,7 @@ export default function TripDetails() {
         .from('places')
         .select('*')
         .eq('trip_id', id)
-        .order('day_index', { ascending: true }); // Ordenarlo Día 1, Día 2, etc.
+        .order('day_index', { ascending: true });
         
       if (!placeError && placeData) {
         setPlaces(placeData);
@@ -97,7 +97,27 @@ export default function TripDetails() {
       if (participantError) {
         console.warn('Participants fetch error (may be RLS):', participantError.message);
       }
-      setParticipants(participantData || []);
+
+      // 4. Fetch owner profile to ensure owner always appears even for old trips
+      const { data: ownerProfile } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .eq('id', tripData.owner_id)
+        .single();
+
+      const acceptedParticipants = participantData || [];
+      const ownerAlreadyIncluded = acceptedParticipants.some(p => p.user_id === tripData.owner_id);
+      
+      // If owner is not in the accepted participants list (old trips), add them
+      if (!ownerAlreadyIncluded && ownerProfile) {
+        acceptedParticipants.unshift({
+          user_id: tripData.owner_id,
+          status: 'accepted',
+          profiles: ownerProfile
+        });
+      }
+
+      setParticipants(acceptedParticipants);
 
     } catch (error) {
       console.error('Error fetching trip data:', error);

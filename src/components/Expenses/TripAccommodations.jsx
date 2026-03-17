@@ -173,6 +173,16 @@ export default function TripAccommodations({ tripId }) {
                   {' → '}
                   {new Date(acc.check_out).toLocaleDateString([], {day:'2-digit', month: 'short'})}
                 </span>
+
+                {/* Horas de entrada/salida */}
+                {(acc.check_in_time || acc.check_out_time) && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    🕐
+                    {acc.check_in_time && <span>Entrada: <strong>{acc.check_in_time}</strong></span>}
+                    {acc.check_in_time && acc.check_out_time && <span style={{ margin: '0 4px' }}>·</span>}
+                    {acc.check_out_time && <span>Salida: <strong>{acc.check_out_time}</strong></span>}
+                  </span>
+                )}
                 
                 {/* Notas/Ubicación */}
                 {acc.notes && (

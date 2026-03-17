@@ -136,18 +136,24 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
       const tripId = result.data[0].id;
       
       if (tripId) {
-        // Update participants
-        // First delete existing pending/accepted participants to simplify (keep owner out)
+        // Delete existing participants to simplify update
         await supabase.from('trip_participants').delete().eq('trip_id', tripId);
-        
+
+        // Always insert the owner as accepted participant
+        const participantsToInsert = [
+          { trip_id: tripId, user_id: user.id, status: 'accepted' }
+        ];
+
+        // Add invited friends with pending status
         if (selectedFriends.length > 0) {
-          const participantsData = selectedFriends.map(friendId => ({
-            trip_id: tripId,
-            user_id: friendId,
-            status: 'pending' // They must accept
-          }));
-          await supabase.from('trip_participants').insert(participantsData);
+          selectedFriends.forEach(friendId => {
+            if (friendId !== user.id) {
+              participantsToInsert.push({ trip_id: tripId, user_id: friendId, status: 'pending' });
+            }
+          });
         }
+
+        await supabase.from('trip_participants').insert(participantsToInsert);
       }
 
       // -- GEOLOCALIZACIÓN AUTOMÁTICA DEL DESTINO --
