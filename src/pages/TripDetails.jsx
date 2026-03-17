@@ -231,37 +231,112 @@ export default function TripDetails() {
         const sortedDays = Object.keys(placesGrouped).sort((a,b) => Number(a) - Number(b));
 
         const movePlace = async (place, direction) => {
-          const dayId = place.day_index || 1;
-          const itemsInDay = [...(placesGrouped[dayId] || [])];
-          const currentIndex = itemsInDay.findIndex(p => p.id === place.id);
+          const currentDayId = parseInt(place.day_index || 1, 10);
+          const currentDayItems = [...(placesGrouped[currentDayId] || [])];
+          const currentIndex = currentDayItems.findIndex(p => p.id === place.id);
           
-          if (direction === 'up' && currentIndex > 0) {
-            // Swap with previous
-            const temp = itemsInDay[currentIndex - 1];
-            itemsInDay[currentIndex - 1] = itemsInDay[currentIndex];
-            itemsInDay[currentIndex] = temp;
-          } else if (direction === 'down' && currentIndex < itemsInDay.length - 1) {
-            // Swap with next
-            const temp = itemsInDay[currentIndex + 1];
-            itemsInDay[currentIndex + 1] = itemsInDay[currentIndex];
-            itemsInDay[currentIndex] = temp;
+          let updates = [];
+          let newAllPlaces = [...places];
+
+          if (direction === 'up') {
+            if (currentIndex > 0) {
+              // Swap within the same day
+              const temp = currentDayItems[currentIndex - 1];
+              currentDayItems[currentIndex - 1] = currentDayItems[currentIndex];
+              currentDayItems[currentIndex] = temp;
+              
+              const updatedItems = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+              updates = updatedItems;
+              
+              newAllPlaces = places.map(p => {
+                const up = updatedItems.find(u => u.id === p.id);
+                return up ? up : p;
+              });
+            } else {
+              // Move to the previous day if it exists
+              const prevDayId = currentDayId - 1;
+              if (prevDayId >= 1) { // Assuming day 1 is minimum
+                const prevDayItems = [...(placesGrouped[prevDayId] || [])];
+                
+                // Remove from current day
+                currentDayItems.splice(currentIndex, 1);
+                
+                // Add to end of previous day
+                const movedPlace = { ...place, day_index: prevDayId };
+                prevDayItems.push(movedPlace);
+                
+                // Update order indices for both days
+                const updatedPrevDay = prevDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+                const updatedCurrentDay = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+                
+                updates = [...updatedPrevDay, ...updatedCurrentDay];
+                
+                newAllPlaces = places.map(p => {
+                  const up = updates.find(u => u.id === p.id);
+                  return up ? up : p;
+                });
+              } else {
+                return; // Cannot move higher than top of Day 1
+              }
+            }
+          } else if (direction === 'down') {
+            if (currentIndex < currentDayItems.length - 1) {
+              // Swap within the same day
+              const temp = currentDayItems[currentIndex + 1];
+              currentDayItems[currentIndex + 1] = currentDayItems[currentIndex];
+              currentDayItems[currentIndex] = temp;
+              
+              const updatedItems = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+              updates = updatedItems;
+              
+              newAllPlaces = places.map(p => {
+                const up = updatedItems.find(u => u.id === p.id);
+                return up ? up : p;
+              });
+            } else {
+              // Move to the next day
+              const nextDayId = currentDayId + 1;
+              
+              // Only allow moving to next day if it's within trip boundaries
+              const start = new Date(trip.start_date);
+              const end = new Date(trip.end_date);
+              const diffMs = end - start;
+              const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
+              
+              if (nextDayId <= totalDays) {
+                const nextDayItems = [...(placesGrouped[nextDayId] || [])];
+                
+                // Remove from current day
+                currentDayItems.splice(currentIndex, 1);
+                
+                // Add to start of next day
+                const movedPlace = { ...place, day_index: nextDayId };
+                nextDayItems.unshift(movedPlace);
+                
+                // Update order indices for both days
+                const updatedNextDay = nextDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+                const updatedCurrentDay = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
+                
+                updates = [...updatedNextDay, ...updatedCurrentDay];
+                
+                newAllPlaces = places.map(p => {
+                  const up = updates.find(u => u.id === p.id);
+                  return up ? up : p;
+                });
+              } else {
+                return; // Cannot move below bottom of last day
+              }
+            }
           } else {
-            return; // No movement possible
+            return;
           }
 
-          // Update order_index
-          const updatedItems = itemsInDay.map((p, idx) => ({ ...p, order_index: idx }));
-          
           // Optimistic local update
-          const newAllPlaces = places.map(p => {
-            const up = updatedItems.find(u => u.id === p.id);
-            return up ? up : p;
-          });
           setPlaces(newAllPlaces);
 
           // Background DB update
           try {
-            const updates = updatedItems.map(p => ({
+            const dbUpdates = updates.map(p => ({
               id: p.id,
               trip_id: p.trip_id,
               name: p.name,
@@ -272,10 +347,11 @@ export default function TripDetails() {
               day_index: p.day_index,
               order_index: p.order_index
             }));
-            const { error } = await supabase.from('places').upsert(updates);
+            const { error } = await supabase.from('places').upsert(dbUpdates);
             if (error) throw error;
           } catch (error) {
             console.error('Error guardando el nuevo orden:', error);
+            fetchTripAndData(); // revert
           }
         };
 
@@ -343,16 +419,31 @@ export default function TripDetails() {
                             <div style={{ display: 'flex', flexDirection: 'column', marginRight: '4px' }}>
                               <button 
                                 onClick={() => movePlace(place, 'up')}
-                                disabled={index === 0}
-                                style={{ background: 'transparent', border: 'none', padding: '0', color: index === 0 ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: index === 0 ? 'default' : 'pointer' }}
+                                disabled={place.day_index === 1 && index === 0}
+                                style={{ background: 'transparent', border: 'none', padding: '0', color: (place.day_index === 1 && index === 0) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: (place.day_index === 1 && index === 0) ? 'default' : 'pointer' }}
                                 title="Subir"
                               >
                                 <ChevronUp size={18} />
                               </button>
                               <button 
                                 onClick={() => movePlace(place, 'down')}
-                                disabled={index === placesGrouped[dayStr].length - 1}
-                                style={{ background: 'transparent', border: 'none', padding: '0', color: index === placesGrouped[dayStr].length - 1 ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: index === placesGrouped[dayStr].length - 1 ? 'default' : 'pointer', marginTop: '-4px' }}
+                                disabled={(() => {
+                                  const start = new Date(trip.start_date);
+                                  const end = new Date(trip.end_date);
+                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                  return place.day_index === totalDays && index === placesGrouped[dayStr].length - 1;
+                                })()}
+                                style={{ background: 'transparent', border: 'none', padding: '0', color: (() => {
+                                  const start = new Date(trip.start_date);
+                                  const end = new Date(trip.end_date);
+                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                  return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)';
+                                })(), cursor: (() => {
+                                  const start = new Date(trip.start_date);
+                                  const end = new Date(trip.end_date);
+                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                  return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'default' : 'pointer';
+                                })(), marginTop: '-4px' }}
                                 title="Bajar"
                               >
                                 <ChevronDown size={18} />
