@@ -16,6 +16,7 @@ import TripExpenses from '../components/Expenses/TripExpenses';
 import TripDocuments from '../components/Expenses/TripDocuments';
 import TripTransports from '../components/Expenses/TripTransports';
 import TripAccommodations from '../components/Expenses/TripAccommodations';
+import TripPhotos from '../components/Expenses/TripPhotos';
 import CityRecommendations from '../components/Recommendations/CityRecommendations';
 import ConfirmModal from '../components/Common/ConfirmModal';
 import TripReview from '../components/Expenses/TripReview';
@@ -318,19 +319,7 @@ export default function TripDetails() {
         );
       }
       case 'photos':
-        return (
-          <div className="glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xl)' }}>
-              <h3>Nuestros Recuerdos</h3>
-              <button className="btn-primary" style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}>Subir Fotos</button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-sm)' }}>
-              <div style={{ height: '200px', background: 'url(https://images.unsplash.com/photo-1511739001486-6bfe10ce785f?auto=format&fit=crop&q=80&w=600) center/cover', borderRadius: 'var(--border-radius)' }}></div>
-              <div style={{ height: '200px', background: 'url(https://images.unsplash.com/photo-1431274172761-fca41d440ba7?auto=format&fit=crop&q=80&w=600) center/cover', borderRadius: 'var(--border-radius)' }}></div>
-              <div style={{ height: '200px', background: 'url(https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&q=80&w=600) center/cover', borderRadius: 'var(--border-radius)' }}></div>
-            </div>
-          </div>
-        );
+        return <TripPhotos tripId={trip.id} />;
       case 'review':
         return <TripReview trip={trip} onUpdate={(updatedTrip) => setTrip(updatedTrip)} />;
       case 'recommendations':

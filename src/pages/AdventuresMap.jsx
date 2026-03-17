@@ -54,19 +54,24 @@ export default function AdventuresMap() {
   const fetchVisitedPlaces = async () => {
     try {
       setLoading(true);
-      // 1. Obtener lugares marcados como visitados
+      const now = new Date().toISOString();
+
+      // Obtener lugares marcados como visitados en viajes ya finalizados (end_date < hoy)
       const { data: placesData, error: placesError } = await supabase
         .from('places')
         .select(`
           id, name, lat, lng, visited,
-          trips (destination, start_date)
+          trips (destination, start_date, end_date)
         `)
-        .eq('visited', true);
+        .eq('visited', true)
+        .lt('trips.end_date', now);
 
       if (placesError) throw placesError;
 
-      // 2. Filtrar lugares con coordenadas válidas
-      const filteredPlaces = (placesData || []).filter(p => p.lat !== 0 || p.lng !== 0);
+      // Filtrar: coordenadas válidas Y que el viaje haya terminado (RLS join puede retornar null si no cumple)
+      const filteredPlaces = (placesData || []).filter(
+        p => p.trips && p.trips.end_date && new Date(p.trips.end_date) < new Date() && (p.lat !== 0 || p.lng !== 0)
+      );
       setVisitedPlaces(filteredPlaces);
     } catch (error) {
       console.error('Error al obtener lugares visitados:', error.message);
