@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { X, UserPlus, Check } from 'lucide-react';
+import { X, UserPlus, Check, Globe, Lock } from 'lucide-react';
 
 export default function NewTripModal({ isOpen, onClose, editingTrip }) {
   const navigate = useNavigate(); // Hook para redirigir al usuario tras crear el viaje.
@@ -24,7 +24,8 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
     destination: '',
     start_date: '',
     end_date: '',
-    cover_image: ''
+    cover_image: '',
+    is_public: false
   });
 
   // Función auxiliar para convertir formato ISO a datetime-local (YYYY-MM-DDTHH:mm)
@@ -43,12 +44,13 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
           destination: editingTrip.destination || '',
           start_date: formatForInput(editingTrip.start_date),
           end_date: formatForInput(editingTrip.end_date),
-          cover_image: editingTrip.cover_image || ''
+          cover_image: editingTrip.cover_image || '',
+          is_public: editingTrip.is_public || false
         });
         setSelectedFriends([]);
         fetchParticipants(editingTrip.id);
       } else {
-        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '' });
+        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '', is_public: false });
         setSelectedFriends([]);
         setExistingParticipants([]);
       }
@@ -117,7 +119,8 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
         end_date: formData.end_date,
         cover_image: formData.cover_image || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&q=80&w=1000',
         status: new Date(formData.start_date) > new Date() ? 'upcoming' : 'past',
-        owner_id: user.id
+        owner_id: user.id,
+        is_public: formData.is_public
       };
 
       let result;
@@ -255,6 +258,58 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
             </div>
           </div>
 
+          {/* Toggle Público/Privado */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Visibilidad del Viaje</label>
+            <div
+              onClick={() => setFormData({...formData, is_public: !formData.is_public})}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                border: `1px solid ${formData.is_public ? 'rgba(118,75,162,0.5)' : 'var(--color-border)'}`,
+                background: formData.is_public ? 'rgba(118,75,162,0.08)' : 'var(--color-bg)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                userSelect: 'none'
+              }}
+            >
+              {/* Track */}
+              <div style={{
+                width: '44px', height: '24px',
+                borderRadius: '12px',
+                background: formData.is_public ? '#764ba2' : 'var(--color-border)',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: formData.is_public ? '23px' : '3px',
+                  width: '18px', height: '18px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  transition: 'left 0.2s'
+                }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {formData.is_public
+                  ? <Globe size={16} color="#764ba2" />
+                  : <Lock size={16} color="var(--color-text-muted)" />}
+                <span style={{ fontWeight: 600, color: formData.is_public ? '#764ba2' : 'var(--color-text-muted)', fontSize: '0.95rem' }}>
+                  {formData.is_public ? 'Público' : 'Privado'}
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                  {formData.is_public ? '— Cualquier usuario puede verlo' : '— Solo tú y tus participantes'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Campo URL Imagen */}
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>URL Imagen de Portada (Opcional)</label>
@@ -269,7 +324,7 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
 
           {/* Gestión de Participantes */}
           <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontWeight: 500 }}>
               Invitar Amigos 
               <button 
                 type="button" 

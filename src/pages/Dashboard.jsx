@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Plane, Calendar, Plus, X, Globe, Users, User } from 'lucide-react';
+import { Plane, Calendar, Plus, X, Globe, Users, User, Lock, Search } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { supabase } from '../lib/supabase';
 import NewTripModal from '../components/NewTripModal';
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const { user, profile } = useAuth();
   const [trips, setTrips] = useState([]);
   const [upcomingTrip, setUpcomingTrip] = useState(null);
+  const [ongoingTrips, setOngoingTrips] = useState([]);
   const [timeLeft, setTimeLeft] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState(null);
@@ -18,6 +19,12 @@ export default function Dashboard() {
   const [pendingFriends, setPendingFriends] = useState(0);
   const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
   const [tripParticipants, setTripParticipants] = useState({});
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     fetchTrips();
@@ -33,7 +40,6 @@ export default function Dashboard() {
       .eq('status', 'pending');
     setPendingFriends(fc || 0);
 
-    // Count pending trip invites for badge on profile icon
     const { count: ic } = await supabase
       .from('trip_participants')
       .select('*', { count: 'exact', head: true })
@@ -46,7 +52,6 @@ export default function Dashboard() {
     try {
       const now = new Date().toISOString();
 
-      // 1. Fetch trips owned by the user
       const { data: ownedData, error: ownedError } = await supabase
         .from('trips')
         .select('*')
@@ -55,7 +60,6 @@ export default function Dashboard() {
 
       if (ownedError) throw ownedError;
 
-      // 2. Fetch trips where user is an accepted participant (not owner)
       const { data: participantData, error: participantError } = await supabase
         .from('trip_participants')
         .select('trip_id, trips(*)')
@@ -64,7 +68,6 @@ export default function Dashboard() {
 
       if (participantError) throw participantError;
 
-      // Combine owned + accepted trips, avoiding duplicates
       const ownedIds = new Set((ownedData || []).map(t => t.id));
       const acceptedTrips = (participantData || [])
         .map(p => p.trips)
@@ -75,10 +78,17 @@ export default function Dashboard() {
 
       setTrips(allTrips);
 
-      const next = allTrips.find(t => new Date(t.start_date) > new Date());
+      const nowDate = new Date();
+      // Ongoing: start_date <= now <= end_date
+      const ongoing = allTrips.filter(t =>
+        new Date(t.start_date) <= nowDate && new Date(t.end_date) >= nowDate
+      );
+      setOngoingTrips(ongoing);
+
+      // Next upcoming trip (strictly in the future AND not ongoing)
+      const next = allTrips.find(t => new Date(t.start_date) > nowDate);
       setUpcomingTrip(next);
 
-      // Fetch participants for all trips (accepted) + owner profiles
       if (allTrips.length > 0) {
         const tripIds = allTrips.map(t => t.id);
         const { data: pData } = await supabase
@@ -87,7 +97,6 @@ export default function Dashboard() {
           .in('trip_id', tripIds)
           .eq('status', 'accepted');
 
-        // Fetch owner profiles for trips where owner may not be in trip_participants
         const ownerIds = [...new Set(allTrips.map(t => t.owner_id))];
         const { data: ownerProfiles } = await supabase
           .from('profiles')
@@ -104,7 +113,6 @@ export default function Dashboard() {
             byTrip[p.trip_id].push(p.profiles);
           });
 
-          // Ensure owner always appears first in each trip
           allTrips.forEach(trip => {
             if (!byTrip[trip.id]) byTrip[trip.id] = [];
             const alreadyHasOwner = byTrip[trip.id].some(p => p?.id === trip.owner_id);
@@ -123,12 +131,67 @@ export default function Dashboard() {
     }
   };
 
+  // ── SEARCH ──────────────────────────────────────────────────────────────────
+  const handleSearch = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setIsSearching(true);
+    setHasSearched(true);
+    try {
+      // 1. Public trips whose destination matches
+      const { data: byDest } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('is_public', true)
+        .ilike('destination', `%${q}%`);
+
+      // 2. Places whose name matches → get their trip_ids → fetch those public trips
+      const { data: byPlaces } = await supabase
+        .from('places')
+        .select('trip_id')
+        .ilike('name', `%${q}%`);
+
+      const placesTripIds = [...new Set((byPlaces || []).map(p => p.trip_id))];
+
+      let byStops = [];
+      if (placesTripIds.length > 0) {
+        const { data: stopTrips } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('is_public', true)
+          .in('id', placesTripIds);
+        byStops = stopTrips || [];
+      }
+
+      // Merge & deduplicate
+      const seen = new Set();
+      const merged = [...(byDest || []), ...byStops].filter(t => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      });
+
+      setSearchResults(merged);
+    } catch (err) {
+      console.error('Error buscando viajes:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+  };
+  // ────────────────────────────────────────────────────────────────────────────
+
   const handleDeleteTrip = (id, destination) => {
     setConfirmModal({ isOpen: true, tripId: id, destination });
   };
 
   const executeDeleteTrip = async () => {
-    const { tripId, destination } = confirmModal;
+    const { tripId } = confirmModal;
     if (!tripId) return;
     try {
       setLoading(true);
@@ -165,64 +228,125 @@ export default function Dashboard() {
   }, [upcomingTrip]);
 
   const now = new Date();
-  // Past trips: end_date < now
   const pastTrips = trips.filter(t => new Date(t.end_date) < now);
-  // Future trips: start_date > now (excluding the very next one)
   const futureTrips = trips.filter(t => new Date(t.start_date) > now && t !== upcomingTrip);
 
-  const TripCard = ({ trip, isOwner }) => (
-    <div className="glass-panel" style={{
-      position: 'relative',
-      display: 'block',
-      overflow: 'hidden',
-      transition: 'transform var(--transition-normal)'
-    }}>
-      <div style={{ position: 'absolute', top: 'var(--spacing-sm)', right: 'var(--spacing-sm)', display: 'flex', gap: '8px', zIndex: 10 }}>
-        <button
-          onClick={() => { setEditingTrip(trip); setIsModalOpen(true); }}
-          style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
-          title="Editar"
-        >
-          <Calendar size={14} />
-        </button>
-        {trip.owner_id === user?.id && (
-          <button
-            onClick={() => handleDeleteTrip(trip.id, trip.destination)}
-            style={{ background: 'rgba(231, 76, 60, 0.3)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
-            title="Borrar"
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
+  // ── TRIP CARD ───────────────────────────────────────────────────────────────
+  const TripCard = ({ trip, isOwner, readOnly = false }) => {
+    const isOngoing = new Date(trip.start_date) <= now && new Date(trip.end_date) >= now;
+    return (
+      <div className="glass-panel" style={{
+        position: 'relative',
+        display: 'block',
+        overflow: 'hidden',
+        transition: 'transform var(--transition-normal)',
+        border: isOngoing ? '2px solid rgba(118,75,162,0.6)' : undefined
+      }}>
+        {/* Badges top-right */}
+        <div style={{ position: 'absolute', top: 'var(--spacing-sm)', right: 'var(--spacing-sm)', display: 'flex', gap: '8px', zIndex: 10 }}>
+          {/* Public/private badge */}
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: '4px',
+            background: trip.is_public ? 'rgba(118,75,162,0.7)' : 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(5px)',
+            color: 'white', fontSize: '0.7rem', fontWeight: 600,
+            padding: '3px 8px', borderRadius: '20px'
+          }}>
+            {trip.is_public ? <Globe size={10} /> : <Lock size={10} />}
+            {trip.is_public ? 'Público' : 'Privado'}
+          </span>
 
-      <Link to={`/trip/${trip.id}`} style={{ textDecoration: 'none' }}>
-        <div style={{ height: '160px', background: `url(${trip.cover_image}) center/cover` }}></div>
-        <div style={{ padding: 'var(--spacing-md)' }}>
-          <h4 style={{ fontSize: '1.3rem', marginBottom: 'var(--spacing-xs)', color: 'var(--color-text-main)' }}>{trip.destination}</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-            <Calendar size={14} />
-            <span>{new Date(trip.start_date).toLocaleDateString()}</span>
+          {!readOnly && (
+            <>
+              <button
+                onClick={() => { setEditingTrip(trip); setIsModalOpen(true); }}
+                style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
+                title="Editar"
+              >
+                <Calendar size={14} />
+              </button>
+              {trip.owner_id === user?.id && (
+                <button
+                  onClick={() => handleDeleteTrip(trip.id, trip.destination)}
+                  style={{ background: 'rgba(231, 76, 60, 0.3)', backdropFilter: 'blur(5px)', border: 'none', padding: '6px', borderRadius: '50%', color: 'white', cursor: 'pointer' }}
+                  title="Borrar"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
+        <Link to={`/trip/${trip.id}`} style={{ textDecoration: 'none' }}>
+          <div style={{ height: '160px', background: `url(${trip.cover_image}) center/cover` }}>
+            {isOngoing && (
+              <div style={{
+                position: 'absolute', top: '8px', left: '8px',
+                background: 'linear-gradient(135deg,#764ba2,#667eea)',
+                color: 'white', fontSize: '0.7rem', fontWeight: 700,
+                padding: '3px 10px', borderRadius: '20px',
+                display: 'flex', alignItems: 'center', gap: '5px',
+                boxShadow: '0 2px 8px rgba(118,75,162,0.5)',
+                animation: 'pulse 2s infinite'
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#7fff7f', display: 'inline-block' }} />
+                ¡En ruta!
+              </div>
+            )}
           </div>
-          {trip.rating && (
-            <div style={{ marginTop: 'var(--spacing-sm)', color: '#f1c40f' }}>
-              {'★'.repeat(trip.rating)}{'☆'.repeat(5 - trip.rating)}
+          <div style={{ padding: 'var(--spacing-md)' }}>
+            <h4 style={{ fontSize: '1.3rem', marginBottom: 'var(--spacing-xs)', color: 'var(--color-text-main)' }}>{trip.destination}</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+              <Calendar size={14} />
+              <span>{new Date(trip.start_date).toLocaleDateString()} — {new Date(trip.end_date).toLocaleDateString()}</span>
             </div>
-          )}
-          {tripParticipants[trip.id]?.length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
-              <Users size={12} style={{ color: 'var(--color-text-muted)', marginTop: '2px' }} />
-              {tripParticipants[trip.id].map((p, i) => (
-                <span key={i} style={{
-                  fontSize: '0.75rem', padding: '2px 8px',
-                  background: 'var(--color-surface)', borderRadius: '20px',
-                  color: 'var(--color-text-muted)', border: '1px solid var(--color-border)'
-                }}>
-                  {p?.full_name || p?.email?.split('@')[0]}
-                </span>
-              ))}
-            </div>
-          )}
+            {trip.rating && (
+              <div style={{ marginTop: 'var(--spacing-sm)', color: '#f1c40f' }}>
+                {'★'.repeat(trip.rating)}{'☆'.repeat(5 - trip.rating)}
+              </div>
+            )}
+            {tripParticipants[trip.id]?.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+                <Users size={12} style={{ color: 'var(--color-text-muted)', marginTop: '2px' }} />
+                {tripParticipants[trip.id].map((p, i) => (
+                  <span key={i} style={{
+                    fontSize: '0.75rem', padding: '2px 8px',
+                    background: 'var(--color-surface)', borderRadius: '20px',
+                    color: 'var(--color-text-muted)', border: '1px solid var(--color-border)'
+                  }}>
+                    {p?.full_name || p?.email?.split('@')[0]}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </Link>
+      </div>
+    );
+  };
+
+  // ── SEARCH RESULT CARD (read-only, no edit controls) ────────────────────────
+  const SearchResultCard = ({ trip }) => (
+    <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden', transition: 'transform var(--transition-normal)' }}>
+      <div style={{ position: 'absolute', top: 'var(--spacing-sm)', right: 'var(--spacing-sm)', zIndex: 10 }}>
+        <span style={{
+          display: 'flex', alignItems: 'center', gap: '4px',
+          background: 'rgba(118,75,162,0.7)', backdropFilter: 'blur(5px)',
+          color: 'white', fontSize: '0.7rem', fontWeight: 600,
+          padding: '3px 8px', borderRadius: '20px'
+        }}>
+          <Globe size={10} /> Público
+        </span>
+      </div>
+      <Link to={`/trip/${trip.id}`} style={{ textDecoration: 'none' }}>
+        <div style={{ height: '140px', background: `url(${trip.cover_image}) center/cover` }} />
+        <div style={{ padding: 'var(--spacing-md)' }}>
+          <h4 style={{ fontSize: '1.2rem', marginBottom: 'var(--spacing-xs)', color: 'var(--color-text-main)' }}>{trip.destination}</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+            <Calendar size={13} />
+            <span>{new Date(trip.start_date).toLocaleDateString()} — {new Date(trip.end_date).toLocaleDateString()}</span>
+          </div>
         </div>
       </Link>
     </div>
@@ -295,6 +419,86 @@ export default function Dashboard() {
         </div>
       </header>
 
+      {/* ── BUSCADOR DE VIAJES PÚBLICOS ── */}
+      <section className="glass-panel" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-2xl)' }}>
+        <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Search size={18} style={{ color: 'var(--color-primary)' }} />
+          Descubrir Viajes
+        </h3>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            placeholder="Buscar por país, ciudad o región... ej: Manchester, Reino Unido"
+            style={{
+              flex: '1 1 260px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text-main)',
+              fontSize: '0.95rem'
+            }}
+          />
+          <button
+            onClick={handleSearch}
+            disabled={isSearching || !searchQuery.trim()}
+            className="btn-primary"
+            style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Search size={16} />
+            {isSearching ? 'Buscando...' : 'Buscar'}
+          </button>
+          {hasSearched && (
+            <button
+              onClick={clearSearch}
+              className="btn-secondary"
+              style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <X size={14} /> Limpiar
+            </button>
+          )}
+        </div>
+
+        {hasSearched && (
+          <div style={{ marginTop: 'var(--spacing-lg)' }}>
+            {searchResults.length === 0 ? (
+              <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: 'var(--spacing-md)' }}>
+                No se encontraron viajes públicos para <strong>"{searchQuery}"</strong>
+              </p>
+            ) : (
+              <>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
+                  {searchResults.length} viaje{searchResults.length !== 1 ? 's' : ''} encontrado{searchResults.length !== 1 ? 's' : ''} para <strong>"{searchQuery}"</strong>
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-lg)' }}>
+                  {searchResults.map(trip => <SearchResultCard key={trip.id} trip={trip} />)}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ── SECCIÓN: VIAJE EN CURSO ── */}
+      {ongoingTrips.length > 0 && (
+        <section style={{ marginBottom: 'var(--spacing-2xl)' }}>
+          <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            🌍 Viaje Actual
+            <span style={{
+              fontSize: '0.75rem', fontWeight: 700, padding: '4px 12px', borderRadius: '20px',
+              background: 'linear-gradient(135deg,#764ba2,#667eea)', color: 'white',
+              letterSpacing: '0.5px', boxShadow: '0 2px 8px rgba(118,75,162,0.4)',
+              animation: 'pulse 2s infinite'
+            }}>¡EN RUTA!</span>
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
+            {ongoingTrips.map(trip => <TripCard key={trip.id} trip={trip} />)}
+          </div>
+        </section>
+      )}
 
       {/* SECCIÓN 1: Próximo Viaje */}
       {upcomingTrip ? (
@@ -314,7 +518,6 @@ export default function Dashboard() {
           <div style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--color-secondary)' }}>
             {timeLeft}
           </div>
-          {/* Participantes */}
           {tripParticipants[upcomingTrip.id]?.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '8px', marginTop: 'var(--spacing-md)' }}>
               <Users size={16} style={{ marginTop: '3px' }} />
@@ -352,7 +555,7 @@ export default function Dashboard() {
             )}
           </div>
         </section>
-      ) : (
+      ) : ongoingTrips.length === 0 && (
         <section className="glass-panel" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', marginBottom: 'var(--spacing-2xl)' }}>
           <h2>No hay viajes planeados 😢</h2>
           <p>¿A dónde vamos la próxima vez?</p>

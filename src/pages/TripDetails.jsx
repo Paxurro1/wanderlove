@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car, Globe, Lock } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
@@ -52,6 +52,7 @@ export default function TripDetails() {
   const [isPlaceModalOpen, setIsPlaceModalOpen] = useState(false); // Pop-up de nuevo lugar
   const [editingPlace, setEditingPlace] = useState(null); // Lugar que se está editando
   const [modalTitle, setModalTitle] = useState('Añadir al Itinerario');
+  const [isReadOnly, setIsReadOnly] = useState(false); // Modo solo lectura (viaje público, no participante)
 
   // Estado para el modal de confirmación de borrado
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, placeId: null, placeName: '' });
@@ -117,6 +118,24 @@ export default function TripDetails() {
       }
 
       setParticipants(acceptedParticipants);
+
+      // Determine read-only mode:
+      // user is owner or accepted participant → full access
+      // user is not owner/participant AND trip is public → read-only
+      // user is not owner/participant AND trip is private → redirect home
+      const isOwner = tripData.owner_id === user?.id;
+      const isParticipant = acceptedParticipants.some(p => p.user_id === user?.id);
+      if (!isOwner && !isParticipant) {
+        if (tripData.is_public) {
+          setIsReadOnly(true);
+        } else {
+          // Private trip, no access → redirect
+          navigate('/');
+          return;
+        }
+      } else {
+        setIsReadOnly(false);
+      }
 
     } catch (error) {
       console.error('Error fetching trip data:', error);
@@ -363,17 +382,19 @@ export default function TripDetails() {
           <div className="glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xl)' }}>
               <h3>Itinerario por Días</h3>
-              <button 
-                className="btn-primary" 
-                onClick={() => {
-                  setModalTitle('Añadir al Itinerario');
-                  setEditingPlace(null);
-                  setIsPlaceModalOpen(true);
-                }}
-                style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-              >
-                + Añadir Plan
-              </button>
+              {!isReadOnly && (
+                <button 
+                  className="btn-primary" 
+                  onClick={() => {
+                    setModalTitle('Añadir al Itinerario');
+                    setEditingPlace(null);
+                    setIsPlaceModalOpen(true);
+                  }}
+                  style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+                >
+                  + Añadir Plan
+                </button>
+              )}
             </div>
             
             {sortedDays.length === 0 ? (
@@ -420,80 +441,90 @@ export default function TripDetails() {
                             <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', marginRight: '4px' }}>
-                              <button 
-                                onClick={() => movePlace(place, 'up')}
-                                disabled={place.day_index === 1 && index === 0}
-                                style={{ background: 'transparent', border: 'none', padding: '0', color: (place.day_index === 1 && index === 0) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: (place.day_index === 1 && index === 0) ? 'default' : 'pointer' }}
-                                title="Subir"
-                              >
-                                <ChevronUp size={18} />
-                              </button>
-                              <button 
-                                onClick={() => movePlace(place, 'down')}
-                                disabled={(() => {
-                                  const start = new Date(trip.start_date);
-                                  const end = new Date(trip.end_date);
-                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
-                                  return place.day_index === totalDays && index === placesGrouped[dayStr].length - 1;
-                                })()}
-                                style={{ background: 'transparent', border: 'none', padding: '0', color: (() => {
-                                  const start = new Date(trip.start_date);
-                                  const end = new Date(trip.end_date);
-                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
-                                  return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)';
-                                })(), cursor: (() => {
-                                  const start = new Date(trip.start_date);
-                                  const end = new Date(trip.end_date);
-                                  const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
-                                  return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'default' : 'pointer';
-                                })(), marginTop: '-4px' }}
-                                title="Bajar"
-                              >
-                                <ChevronDown size={18} />
-                              </button>
-                            </div>
-                            
-                            <div style={{ width: '1px', height: '24px', background: 'var(--color-border)', margin: '0 4px' }}></div>
-                            
-                            <button 
-                              onClick={() => {
-                                setEditingPlace(place);
-                                setIsPlaceModalOpen(true);
-                              }}
-                              style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
-                              title="Editar"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button 
-                              onClick={() => handleDeletePlace(place.id, place.name)}
-                              style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
-                              title="Borrar"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                const newVisited = !place.visited;
-                                const { error } = await supabase
-                                  .from('places')
-                                  .update({ visited: newVisited })
-                                  .eq('id', place.id);
-                                if (!error) fetchTripAndData(); // Recargar datos para refrescar la UI
-                              }}
-                              style={{ 
-                                background: place.visited ? 'var(--color-success)' : 'transparent',
-                                color: place.visited ? 'white' : 'var(--color-text-muted)',
-                                border: `1px solid ${place.visited ? 'var(--color-success)' : 'var(--color-border)'}`,
-                                padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                fontWeight: 600
-                              }}
-                            >
-                              {place.visited ? 'Visitado ✓' : 'Marcar visitado'}
-                            </button>
+                            {!isReadOnly && (
+                              <>
+                                <div style={{ display: 'flex', flexDirection: 'column', marginRight: '4px' }}>
+                                  <button 
+                                    onClick={() => movePlace(place, 'up')}
+                                    disabled={place.day_index === 1 && index === 0}
+                                    style={{ background: 'transparent', border: 'none', padding: '0', color: (place.day_index === 1 && index === 0) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)', cursor: (place.day_index === 1 && index === 0) ? 'default' : 'pointer' }}
+                                    title="Subir"
+                                  >
+                                    <ChevronUp size={18} />
+                                  </button>
+                                  <button 
+                                    onClick={() => movePlace(place, 'down')}
+                                    disabled={(() => {
+                                      const start = new Date(trip.start_date);
+                                      const end = new Date(trip.end_date);
+                                      const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                      return place.day_index === totalDays && index === placesGrouped[dayStr].length - 1;
+                                    })()}
+                                    style={{ background: 'transparent', border: 'none', padding: '0', color: (() => {
+                                      const start = new Date(trip.start_date);
+                                      const end = new Date(trip.end_date);
+                                      const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                      return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'rgba(0,0,0,0.1)' : 'var(--color-text-muted)';
+                                    })(), cursor: (() => {
+                                      const start = new Date(trip.start_date);
+                                      const end = new Date(trip.end_date);
+                                      const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                                      return (place.day_index === totalDays && index === placesGrouped[dayStr].length - 1) ? 'default' : 'pointer';
+                                    })(), marginTop: '-4px' }}
+                                    title="Bajar"
+                                  >
+                                    <ChevronDown size={18} />
+                                  </button>
+                                </div>
+                                
+                                <div style={{ width: '1px', height: '24px', background: 'var(--color-border)', margin: '0 4px' }}></div>
+                                
+                                <button 
+                                  onClick={() => {
+                                    setEditingPlace(place);
+                                    setIsPlaceModalOpen(true);
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
+                                  title="Editar"
+                                >
+                                  <Pencil size={16} />
+                                </button>
+                                <button 
+                                  onClick={() => handleDeletePlace(place.id, place.name)}
+                                  style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
+                                  title="Borrar"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    const newVisited = !place.visited;
+                                    const { error } = await supabase
+                                      .from('places')
+                                      .update({ visited: newVisited })
+                                      .eq('id', place.id);
+                                    if (!error) fetchTripAndData();
+                                  }}
+                                  style={{ 
+                                    background: place.visited ? 'var(--color-success)' : 'transparent',
+                                    color: place.visited ? 'white' : 'var(--color-text-muted)',
+                                    border: `1px solid ${place.visited ? 'var(--color-success)' : 'var(--color-border)'}`,
+                                    padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  {place.visited ? 'Visitado ✓' : 'Marcar visitado'}
+                                </button>
+                              </>
+                            )}
+                            {isReadOnly && place.visited && (
+                              <span style={{
+                                background: 'var(--color-success)', color: 'white',
+                                padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600
+                              }}>Visitado ✓</span>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -540,9 +571,34 @@ export default function TripDetails() {
           }}>
             <ArrowLeft size={18} /> Volver
           </Link>
-          <h1 style={{ fontSize: '3.5rem', marginBottom: 'var(--spacing-xs)', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
-            {trip.destination}
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: 'var(--spacing-xs)' }}>
+            <h1 style={{ fontSize: '3.5rem', margin: 0, textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+              {trip.destination}
+            </h1>
+            {/* Public/private badge */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              background: trip.is_public ? 'rgba(118,75,162,0.7)' : 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(5px)',
+              color: 'white', fontSize: '0.8rem', fontWeight: 700,
+              padding: '4px 12px', borderRadius: '20px',
+              letterSpacing: '0.3px'
+            }}>
+              {trip.is_public ? <Globe size={12} /> : <Lock size={12} />}
+              {trip.is_public ? 'Público' : 'Privado'}
+            </span>
+            {isReadOnly && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '5px',
+                background: 'rgba(255,193,7,0.25)',
+                border: '1px solid rgba(255,193,7,0.5)',
+                color: '#ffd700', fontSize: '0.8rem', fontWeight: 700,
+                padding: '4px 12px', borderRadius: '20px'
+              }}>
+                👁️ Solo lectura
+              </span>
+            )}
+          </div>
           <p style={{ fontSize: '1.2rem', opacity: 0.9, textShadow: '0 2px 5px rgba(0,0,0,0.5)' }}>
             {new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}
           </p>
@@ -562,8 +618,8 @@ export default function TripDetails() {
             </div>
           )}
 
-          {/* Leave trip button (only for non-owners) */}
-          {trip.owner_id !== user?.id && (
+          {/* Leave trip button (only for non-owners who ARE participants) */}
+          {trip.owner_id !== user?.id && !isReadOnly && (
             <button
               onClick={handleLeaveTrip}
               style={{
@@ -618,16 +674,18 @@ export default function TripDetails() {
         </main>
       </div>
       
-      <NewPlaceModal 
-        isOpen={isPlaceModalOpen} 
-        onClose={() => setIsPlaceModalOpen(false)} 
-        tripId={trip.id}
-        tripStartDate={trip.start_date}
-        tripEndDate={trip.end_date}
-        onPlaceAdded={handlePlaceAdded}
-        editingPlace={editingPlace}
-        modalTitle={modalTitle}
-      />
+      {!isReadOnly && (
+        <NewPlaceModal 
+          isOpen={isPlaceModalOpen} 
+          onClose={() => setIsPlaceModalOpen(false)} 
+          tripId={trip.id}
+          tripStartDate={trip.start_date}
+          tripEndDate={trip.end_date}
+          onPlaceAdded={handlePlaceAdded}
+          editingPlace={editingPlace}
+          modalTitle={modalTitle}
+        />
+      )}
 
       <ConfirmModal 
         isOpen={confirmModal.isOpen}
