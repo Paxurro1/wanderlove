@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { PieChart, DollarSign, Plus, Pencil, Trash2 } from 'lucide-react';
+import { PieChart, DollarSign, Plus, Pencil, Trash2, CheckCircle, Clock } from 'lucide-react';
 import NewExpenseModal from './NewExpenseModal';
 import ConfirmModal from '../Common/ConfirmModal';
 
@@ -40,7 +40,7 @@ export default function TripExpenses({ tripId }) {
       // 1. Fetch Expenses
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select('*, profiles:paid_by(full_name, avatar_url)')
+        .select('*, profiles:paid_by(id, full_name, avatar_url)')
         .eq('trip_id', tripId)
         .order('created_at', { ascending: false });
         
@@ -249,58 +249,77 @@ export default function TripExpenses({ tripId }) {
             No hay gastos registrados todavía.
           </div>
         ) : (
-          expenses.map(exp => (
-            <div key={exp.id} style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center',
-              padding: 'var(--spacing-md)',
-              background: 'var(--color-surface)',
-              borderRadius: 'var(--border-radius)',
-              border: '1px solid var(--color-border)'
-            }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>{exp.category}</div>
-                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{exp.description}</div>
-                {exp.profiles && (
-                  <div style={{ 
-                    display: 'flex', alignItems: 'center', gap: '4px', 
-                    fontSize: '0.75rem', color: 'var(--color-text-muted)', 
-                    marginTop: '4px', background: 'var(--color-bg)',
-                    padding: '2px 8px', borderRadius: '10px', width: 'fit-content'
-                  }}>
-                    Pagado por <span style={{ fontWeight: 600 }}>{exp.profiles.full_name.split(' ')[0]}</span>
+          expenses.map(exp => {
+            const isPaid = exp.is_paid;
+            return (
+              <div key={exp.id} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: 'var(--spacing-md)',
+                background: isPaid ? 'rgba(56,161,105,0.06)' : 'rgba(229,62,62,0.06)',
+                borderRadius: 'var(--border-radius)',
+                border: `1px solid ${isPaid ? 'rgba(56,161,105,0.35)' : 'rgba(229,62,62,0.35)'}`,
+                transition: 'all 0.2s'
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+                    {isPaid
+                      ? <CheckCircle size={14} color="#38a169" />
+                      : <Clock size={14} color="#e53e3e" />}
+                    <span>{exp.category}</span>
+                    <span style={{
+                      fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                      background: isPaid ? 'rgba(56,161,105,0.15)' : 'rgba(229,62,62,0.15)',
+                      color: isPaid ? '#38a169' : '#e53e3e'
+                    }}>
+                      {isPaid ? 'Pagado' : 'Pendiente'}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                    {(Number(exp.amount) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                    <button 
-                      onClick={() => {
-                        setEditingExpense(exp);
-                        setIsModalOpen(true);
-                      }}
-                      style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}
-                      title="Editar gasto"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                      style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '2px' }}
-                      title="Borrar gasto"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                  <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '2px' }}>{exp.description}</div>
+                  {exp.profiles && (
+                    <div style={{ 
+                      display: 'flex', alignItems: 'center', gap: '4px', 
+                      fontSize: '0.75rem', color: 'var(--color-text-muted)', 
+                      marginTop: '4px', background: 'var(--color-bg)',
+                      padding: '2px 8px', borderRadius: '10px', width: 'fit-content'
+                    }}>
+                      {exp.profiles.avatar_url && (
+                        <img src={exp.profiles.avatar_url} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%', objectFit: 'cover' }} />
+                      )}
+                      Pagado por <span style={{ fontWeight: 600 }}>{exp.profiles.full_name?.split(' ')[0]}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isPaid ? '#38a169' : '#e53e3e' }}>
+                      {(Number(exp.amount) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                      <button 
+                        onClick={() => {
+                          setEditingExpense(exp);
+                          setIsModalOpen(true);
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}
+                        title="Editar gasto"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                        style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '2px' }}
+                        title="Borrar gasto"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
       

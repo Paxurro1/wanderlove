@@ -9,10 +9,11 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
   const [loading, setLoading] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [formData, setFormData] = useState({
-    category: '',    // Categoría del gasto (Vuelos, Comida, etc.)
-    amount: '',      // Importe numérico
-    description: '', // Nota adicional descriptiva
-    paid_by: user?.id || '' // Quién pagó
+    category: '',
+    amount: '',
+    description: '',
+    paid_by: user?.id || '',
+    is_paid: false
   });
 
   // Fetch participants when modal opens
@@ -64,10 +65,11 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
         category: editingExpense.category || '',
         amount: editingExpense.amount || '',
         description: editingExpense.description || '',
-        paid_by: editingExpense.paid_by || user?.id || ''
+        paid_by: editingExpense.paid_by || user?.id || '',
+        is_paid: editingExpense.is_paid || false
       });
     } else {
-      setFormData({ category: '', amount: '', description: '', paid_by: user?.id || '' });
+      setFormData({ category: '', amount: '', description: '', paid_by: user?.id || '', is_paid: false });
     }
   }, [editingExpense, isOpen, user?.id]);
 
@@ -89,7 +91,8 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
         category: formData.category,
         amount: parseFloat(formData.amount),
         description: formData.description,
-        paid_by: formData.paid_by || user.id
+        paid_by: formData.paid_by || user.id,
+        is_paid: formData.is_paid
       };
 
       let result;
@@ -199,6 +202,49 @@ export default function NewExpenseModal({ isOpen, onClose, tripId, onExpenseAdde
               placeholder="Ej. Cena en pizzería del centro"
               style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
             />
+          </div>
+
+          {/* Toggle Pagado/Pendiente */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Estado del gasto</label>
+            <div
+              onClick={() => setFormData({...formData, is_paid: !formData.is_paid})}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 16px',
+                borderRadius: '8px',
+                border: `1px solid ${formData.is_paid ? 'rgba(56,161,105,0.5)' : 'rgba(229,62,62,0.4)'}`,
+                background: formData.is_paid ? 'rgba(56,161,105,0.08)' : 'rgba(229,62,62,0.06)',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                userSelect: 'none'
+              }}
+            >
+              <div style={{
+                width: '44px', height: '24px',
+                borderRadius: '12px',
+                background: formData.is_paid ? '#38a169' : '#e53e3e',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '3px',
+                  left: formData.is_paid ? '23px' : '3px',
+                  width: '18px', height: '18px',
+                  borderRadius: '50%',
+                  background: 'white',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  transition: 'left 0.2s'
+                }} />
+              </div>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: formData.is_paid ? '#38a169' : '#e53e3e' }}>
+                {formData.is_paid ? '✅ Pagado / Liquidado' : '⏳ Pendiente de pago'}
+              </span>
+            </div>
           </div>
 
           {/* Botón de envío */}

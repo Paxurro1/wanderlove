@@ -146,16 +146,41 @@ const Auth = () => {
               </div>
 
               {view === 'register' && (
-                <div className="form-group">
-                  <label><Lock size={18} /> Confirmar Contraseña</label>
-                  <input 
-                    type="password" 
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                </div>
+                <>
+                  <div className="form-group">
+                    <label><Lock size={18} /> Confirmar Contraseña</label>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  {/* Consejos de seguridad para la contraseña */}
+                  <div style={{
+                    background: 'rgba(118,75,162,0.08)',
+                    border: '1px solid rgba(118,75,162,0.25)',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '0.82rem',
+                    color: 'var(--color-text-muted)',
+                    lineHeight: 1.6
+                  }}>
+                    <div style={{ fontWeight: 700, color: 'var(--color-primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      🔐 Consejos para una contraseña segura
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                      <li><strong>Usa una contraseña única</strong> — no la uses en ningún otro sitio</li>
+                      <li>Combina <strong>mayúsculas y minúsculas</strong> (ej. WanderL0ve)</li>
+                      <li>Incluye <strong>números y símbolos</strong> (ej. ! @ # $)</li>
+                      <li>Mínimo <strong>8 caracteres</strong> (cuantos más, mejor)</li>
+                      <li>Evita datos personales: nombre, fecha de nacimiento, etc.</li>
+                      <li>Considera usar un <strong>gestor de contraseñas</strong> (Bitwarden, 1Password...)</li>
+                    </ul>
+                  </div>
+                </>
               )}
             </>
           )}

@@ -228,7 +228,9 @@ export default function Dashboard() {
   }, [upcomingTrip]);
 
   const now = new Date();
-  const pastTrips = trips.filter(t => new Date(t.end_date) < now);
+  const pastTrips = trips
+    .filter(t => new Date(t.end_date) < now)
+    .sort((a, b) => new Date(b.end_date) - new Date(a.end_date)); // newest first
   const futureTrips = trips.filter(t => new Date(t.start_date) > now && t !== upcomingTrip);
 
   // ── TRIP CARD ───────────────────────────────────────────────────────────────
@@ -482,21 +484,76 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* ── SECCIÓN: VIAJE EN CURSO ── */}
+      {/* ── SECCIÓN: VIAJE EN CURSO (HERO prominente) ── */}
       {ongoingTrips.length > 0 && (
         <section style={{ marginBottom: 'var(--spacing-2xl)' }}>
-          <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.8rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            🌍 Viaje Actual
-            <span style={{
-              fontSize: '0.75rem', fontWeight: 700, padding: '4px 12px', borderRadius: '20px',
-              background: 'linear-gradient(135deg,#764ba2,#667eea)', color: 'white',
-              letterSpacing: '0.5px', boxShadow: '0 2px 8px rgba(118,75,162,0.4)',
-              animation: 'pulse 2s infinite'
-            }}>¡EN RUTA!</span>
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--spacing-lg)' }}>
-            {ongoingTrips.map(trip => <TripCard key={trip.id} trip={trip} />)}
-          </div>
+          {ongoingTrips.map(trip => (
+            <div key={trip.id} className="glass-panel" style={{
+              padding: 'var(--spacing-2xl)',
+              textAlign: 'center',
+              position: 'relative',
+              overflow: 'hidden',
+              color: 'white',
+              background: `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6)), url(${trip.cover_image}) center/cover no-repeat`,
+              border: '2px solid rgba(118,75,162,0.7)'
+            }}>
+              {/* Animated ¡EN RUTA! banner */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                background: 'linear-gradient(135deg,#764ba2,#667eea)',
+                color: 'white', fontWeight: 800, fontSize: '0.9rem',
+                padding: '6px 18px', borderRadius: '30px',
+                marginBottom: 'var(--spacing-md)',
+                boxShadow: '0 4px 15px rgba(118,75,162,0.5)',
+                letterSpacing: '1px'
+              }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7fff7f', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                ¡VIAJE EN CURSO!
+              </div>
+              <div style={{ fontSize: '4rem', fontWeight: 'bold', margin: 'var(--spacing-sm) 0', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+                {trip.destination}
+              </div>
+              <div style={{ fontSize: '1.1rem', opacity: 0.85, marginBottom: 'var(--spacing-md)' }}>
+                {new Date(trip.start_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long' })} — {new Date(trip.end_date).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </div>
+              {tripParticipants[trip.id]?.length > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: 'var(--spacing-lg)' }}>
+                  <Users size={16} style={{ marginTop: '3px' }} />
+                  {tripParticipants[trip.id].map((p, i) => (
+                    <span key={i} style={{
+                      background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)',
+                      padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 500
+                    }}>
+                      {p?.full_name || p?.email?.split('@')[0]}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <Link to={`/trip/${trip.id}`}>
+                  <button className="btn-primary" style={{ background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(5px)', border: '1px solid rgba(255,255,255,0.4)' }}>
+                    Ver detalles <Plane size={18} />
+                  </button>
+                </Link>
+                <button
+                  className="btn-primary"
+                  onClick={() => { setEditingTrip(trip); setIsModalOpen(true); }}
+                  style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', padding: 'var(--spacing-sm) var(--spacing-md)' }}
+                >
+                  Editar
+                </button>
+                {trip.owner_id === user?.id && (
+                  <button
+                    className="btn-primary"
+                    onClick={() => handleDeleteTrip(trip.id, trip.destination)}
+                    style={{ background: 'rgba(231,76,60,0.4)', border: 'none', padding: 'var(--spacing-sm) var(--spacing-md)' }}
+                  >
+                    Borrar
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </section>
       )}
 
@@ -600,6 +657,20 @@ export default function Dashboard() {
         confirmText="Sí, borrar viaje"
         cancelText="No, mantenerlo"
       />
+
+      {/* Copyright footer */}
+      <footer style={{
+        marginTop: 'var(--spacing-2xl)',
+        paddingTop: 'var(--spacing-lg)',
+        borderTop: '1px solid var(--color-border)',
+        textAlign: 'center',
+        color: 'var(--color-text-muted)',
+        fontSize: '0.8rem'
+      }}>
+        <p style={{ margin: 0 }}>
+          © {new Date().getFullYear()} WanderLove — Álvaro Santos Martín-Nieto. Todos los derechos reservados.
+        </p>
+      </footer>
     </div>
   );
 }
