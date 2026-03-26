@@ -542,7 +542,7 @@ export default function TripDetails() {
         );
       }
       case 'photos':
-        return <TripPhotos tripId={trip.id} />;
+        return <TripPhotos tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'review':
         return <TripReview trip={trip} onUpdate={(updatedTrip) => setTrip(updatedTrip)} />;
       case 'recommendations':
@@ -652,7 +652,7 @@ export default function TripDetails() {
         }}>
           {TABS.filter(tab => {
             if (isReadOnly && !trip?.expenses_public && tab.id === 'expenses') return false;
-            if (isReadOnly && !trip?.documents_public && tab.id === 'documents') return false;
+            if (isReadOnly && !trip?.documents_public && (tab.id === 'documents' || tab.id === 'photos')) return false;
             return true;
           }).map(tab => (
             <button

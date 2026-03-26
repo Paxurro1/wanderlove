@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/AuthContext';
 import { Upload, Trash2, Camera, X, Loader } from 'lucide-react';
 
-export default function TripPhotos({ tripId }) {
+export default function TripPhotos({ tripId, isReadOnly }) {
   const { user } = useAuth();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -123,13 +123,15 @@ export default function TripPhotos({ tripId }) {
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
           <Camera size={24} color="var(--color-primary)" /> Nuestros Recuerdos
         </h3>
-        <button
-          className="btn-primary"
-          onClick={() => fileInputRef.current?.click()}
-          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-        >
-          <Upload size={16} /> Subir Foto
-        </button>
+        {!isReadOnly && (
+          <button
+            className="btn-primary"
+            onClick={() => fileInputRef.current?.click()}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+          >
+            <Upload size={16} /> Subir Foto
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -230,7 +232,7 @@ export default function TripPhotos({ tripId }) {
                   {photo.caption}
                 </div>
               )}
-              {photo.uploaded_by === user?.id && (
+              {!isReadOnly && photo.uploaded_by === user?.id && (
                 <button
                   onClick={() => handleDelete(photo)}
                   style={{

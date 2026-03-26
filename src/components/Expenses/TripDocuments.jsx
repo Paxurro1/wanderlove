@@ -10,7 +10,7 @@ import { FileText, CheckCircle2, Circle, Plus, AlertCircle, X } from 'lucide-rea
 import NewDocumentModal from './NewDocumentModal';
 import ConfirmModal from '../Common/ConfirmModal';
 
-export default function TripDocuments({ tripId }) {
+export default function TripDocuments({ tripId, isReadOnly }) {
   // -- ESTADOS LOCALES --
   const [documents, setDocuments] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,16 +114,18 @@ export default function TripDocuments({ tripId }) {
           </h3>
           <p style={{ color: 'var(--color-text-muted)', margin: 'var(--spacing-xs) 0 0 0' }}>Controla qué papeles necesitáis para viajar.</p>
         </div>
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            setEditingDocument(null);
-            setIsModalOpen(true);
-          }}
-          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-        >
-          <Plus size={16} /> Añadir Doc
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn-primary" 
+            onClick={() => {
+              setEditingDocument(null);
+              setIsModalOpen(true);
+            }}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+          >
+            <Plus size={16} /> Añadir Doc
+          </button>
+        )}
       </div>
 
       {/* Visualización de la Barra de Progreso */}
@@ -157,8 +159,8 @@ export default function TripDocuments({ tripId }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
               {/* Icono de estado (Check o Círculo vacío) */}
                <button 
-                onClick={() => toggleDocumentStatus(doc.id, doc.status)}
-                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: doc.status === 'ready' ? 'var(--color-success)' : 'var(--color-text-muted)' }}
+                onClick={() => !isReadOnly && toggleDocumentStatus(doc.id, doc.status)}
+                style={{ background: 'transparent', border: 'none', cursor: isReadOnly ? 'default' : 'pointer', color: doc.status === 'ready' ? 'var(--color-success)' : 'var(--color-text-muted)' }}
               >
                 {doc.status === 'ready' ? <CheckCircle2 size={24} /> : <Circle size={24} />}
               </button>
@@ -184,21 +186,25 @@ export default function TripDocuments({ tripId }) {
                 {doc.status === 'ready' ? 'Listo' : 'Pendiente'}
               </div>
               <div style={{ display: 'flex', gap: '4px' }}>
-                <button 
-                  onClick={() => {
-                    setEditingDocument(doc);
-                    setIsModalOpen(true);
-                  }}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
-                >
-                  <FileText size={16} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteDocument(doc.id, doc.name)}
-                  style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
-                >
-                  <X size={16} />
-                </button>
+                {!isReadOnly && (
+                  <>
+                    <button 
+                      onClick={() => {
+                        setEditingDocument(doc);
+                        setIsModalOpen(true);
+                      }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <FileText size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteDocument(doc.id, doc.name)}
+                      style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
