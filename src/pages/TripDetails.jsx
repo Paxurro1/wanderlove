@@ -652,7 +652,8 @@ export default function TripDetails() {
         }}>
           {TABS.filter(tab => {
             if (isReadOnly && !trip?.expenses_public && tab.id === 'expenses') return false;
-            if (isReadOnly && !trip?.documents_public && (tab.id === 'documents' || tab.id === 'photos')) return false;
+            if (isReadOnly && !trip?.documents_public && tab.id === 'documents') return false;
+            if (isReadOnly && !trip?.photos_public && tab.id === 'photos') return false;
             return true;
           }).map(tab => (
             <button

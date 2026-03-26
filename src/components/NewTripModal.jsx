@@ -47,12 +47,14 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
           end_date: formatForInput(editingTrip.end_date),
           cover_image: editingTrip.cover_image || '',
           is_public: editingTrip.is_public || false,
-          expenses_public: editingTrip.expenses_public || false
+          expenses_public: editingTrip.expenses_public || false,
+          documents_public: editingTrip.documents_public || false,
+          photos_public: editingTrip.photos_public || false
         });
         setSelectedFriends([]);
         fetchParticipants(editingTrip.id);
       } else {
-        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '', is_public: false, expenses_public: false, documents_public: false });
+        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '', is_public: false, expenses_public: false, documents_public: false, photos_public: false });
         setSelectedFriends([]);
         setExistingParticipants([]);
       }
@@ -124,7 +126,8 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
         owner_id: user.id,
         is_public: formData.is_public,
         expenses_public: formData.expenses_public,
-        documents_public: formData.documents_public
+        documents_public: formData.documents_public,
+        photos_public: formData.photos_public
       };
 
       let result;
@@ -401,10 +404,50 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <span style={{ fontWeight: 600, color: formData.documents_public ? '#38a169' : '#e74c3c', fontSize: '0.85rem' }}>
-                        {formData.documents_public ? 'Fotos visibles al público' : 'Fotos ocultas al público'}
+                        {formData.documents_public ? 'Documentos visibles al público' : 'Documentos ocultos al público'}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {formData.documents_public ? 'Todos pueden ver billetes y fotos.' : 'Nadie ajeno al viaje verá estos archivos.'}
+                        {formData.documents_public ? 'Todos pueden ver billetes y reservas.' : 'Nadie ajeno verá los documentos.'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* FOTOS Público/Privado Toggle */}
+                  <div 
+                    onClick={() => setFormData({...formData, photos_public: !formData.photos_public})}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', gap: '12px', 
+                      background: 'var(--color-bg)', padding: '12px', borderRadius: '8px',
+                      cursor: 'pointer', border: `1px solid ${formData.photos_public ? 'rgba(56,161,105,0.3)' : 'rgba(231,76,60,0.3)'}`,
+                      transition: 'all 0.2s',
+                      userSelect: 'none'
+                    }}
+                  >
+                    <div style={{
+                      width: '36px', height: '20px',
+                      borderRadius: '10px',
+                      background: formData.photos_public ? '#38a169' : '#e74c3c',
+                      position: 'relative',
+                      transition: 'background 0.2s',
+                      flexShrink: 0
+                    }}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '2px',
+                        left: formData.photos_public ? '18px' : '2px',
+                        width: '16px', height: '16px',
+                        borderRadius: '50%',
+                        background: 'white',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                        transition: 'left 0.2s'
+                      }} />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <span style={{ fontWeight: 600, color: formData.photos_public ? '#38a169' : '#e74c3c', fontSize: '0.85rem' }}>
+                        {formData.photos_public ? 'Fotos visibles al público' : 'Fotos ocultas al público'}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {formData.photos_public ? 'Todos pueden ver la galería de fotos.' : 'Nadie ajeno al viaje verá las fotos.'}
                       </span>
                     </div>
                   </div>
