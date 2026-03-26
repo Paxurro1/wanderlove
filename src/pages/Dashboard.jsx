@@ -487,6 +487,7 @@ export default function Dashboard() {
       {/* ── SECCIÓN: VIAJE EN CURSO (HERO prominente) ── */}
       {ongoingTrips.length > 0 && (
         <section style={{ marginBottom: 'var(--spacing-2xl)' }}>
+          <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.8rem' }}>🌍 Viaje Actual</h3>
           {ongoingTrips.map(trip => (
             <div key={trip.id} className="glass-panel" style={{
               padding: 'var(--spacing-2xl)',
@@ -559,19 +560,19 @@ export default function Dashboard() {
 
       {/* SECCIÓN 1: Próximo Viaje */}
       {upcomingTrip ? (
-        <section className="glass-panel" style={{
-          padding: 'var(--spacing-2xl)',
-          textAlign: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-          marginBottom: 'var(--spacing-2xl)',
-          color: 'white',
-          background: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(${upcomingTrip.cover_image}) center/cover no-repeat`
-        }}>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 500, opacity: 0.9 }}>Próximo destino</h2>
-          <div style={{ fontSize: '4.5rem', fontWeight: 'bold', margin: 'var(--spacing-sm) 0', textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
-            {upcomingTrip.destination}
-          </div>
+        <section style={{ marginBottom: 'var(--spacing-2xl)' }}>
+          <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: '1.8rem' }}>🚀 Próximo Destino</h3>
+          <div className="glass-panel" style={{
+            padding: 'var(--spacing-2xl)',
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+            color: 'white',
+            background: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6)), url(${upcomingTrip.cover_image}) center/cover no-repeat`
+          }}>
+            <div style={{ fontSize: '4.5rem', fontWeight: 'bold', margin: 'var(--spacing-sm) 0', textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+              {upcomingTrip.destination}
+            </div>
           <div style={{ fontSize: '2rem', fontWeight: 600, color: 'var(--color-secondary)' }}>
             {timeLeft}
           </div>
@@ -610,6 +611,7 @@ export default function Dashboard() {
                 Borrar
               </button>
             )}
+          </div>
           </div>
         </section>
       ) : ongoingTrips.length === 0 && (
