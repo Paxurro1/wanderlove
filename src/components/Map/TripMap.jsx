@@ -43,7 +43,7 @@ function MapBounds({ places }) {
   return null;
 }
 
-export default function TripMap({ tripId, onAddPlace }) {
+export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
   const [places, setPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,13 +73,15 @@ export default function TripMap({ tripId, onAddPlace }) {
       {/* Cabecera del Mapa */}
       <div style={{ padding: 'var(--spacing-md) var(--spacing-xl)', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h3>Lugares Guardados ({places.length})</h3>
-        <button 
-          className="btn-primary" 
-          onClick={onAddPlace}
-          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-        >
-          + Añadir Lugar
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn-primary" 
+            onClick={onAddPlace}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+          >
+            + Añadir Lugar
+          </button>
+        )}
       </div>
       
       {/* Contenedor del Mapa de Leaflet */}
@@ -107,7 +109,7 @@ export default function TripMap({ tripId, onAddPlace }) {
                   <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{place.name}</h4>
                   <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{place.reason}</p>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', cursor: 'pointer' }}>
-                    <input type="checkbox" defaultChecked={place.visited} />
+                    <input type="checkbox" defaultChecked={place.visited} disabled={isReadOnly} />
                     <span style={{ fontSize: '0.9rem' }}>Marcado como visitado</span>
                   </label>
                 </div>

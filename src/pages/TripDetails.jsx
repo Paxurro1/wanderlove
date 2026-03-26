@@ -231,13 +231,13 @@ export default function TripDetails() {
       case 'rentals':
         return <TripRentals tripId={trip.id} trip={trip} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'map':
-        return <TripMap tripId={trip.id} onAddPlace={() => {
+        return <TripMap tripId={trip.id} isReadOnly={isReadOnly} onAddPlace={() => {
           setModalTitle('Añadir Lugar');
           setEditingPlace(null);
           setIsPlaceModalOpen(true);
         }} />;
       case 'expenses':
-        return <TripExpenses tripId={trip.id} />;
+        return <TripExpenses tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'itinerary': {
         // En el caso del Itinerario, lo renderizamos de forma nativa aquí en lugar de un hijo externo
         // 1. Agrupar los lugares por su 'Día' (.day_index).

@@ -10,7 +10,7 @@ import { PieChart, DollarSign, Plus, Pencil, Trash2, CheckCircle, Clock } from '
 import NewExpenseModal from './NewExpenseModal';
 import ConfirmModal from '../Common/ConfirmModal';
 
-export default function TripExpenses({ tripId }) {
+export default function TripExpenses({ tripId, isReadOnly }) {
   // --- ESTADOS LOCALes ---
   // expenses: Lista de gastos asociados a este viaje.
   const [expenses, setExpenses] = useState([]);
@@ -137,16 +137,18 @@ export default function TripExpenses({ tripId }) {
           </h3>
           <p style={{ color: 'var(--color-text-muted)', margin: 'var(--spacing-xs) 0 0 0' }}>Lleva un control de lo que gastáis.</p>
         </div>
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            setEditingExpense(null);
-            setIsModalOpen(true);
-          }}
-          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-        >
-          <Plus size={16} /> Añadir Gasto
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn-primary" 
+            onClick={() => {
+              setEditingExpense(null);
+              setIsModalOpen(true);
+            }}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+          >
+            <Plus size={16} /> Añadir Gasto
+          </button>
+        )}
       </div>
 
       {/* Tarjeta resumen del Gasto Total */}
@@ -296,25 +298,27 @@ export default function TripExpenses({ tripId }) {
                     <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isPaid ? '#38a169' : '#e53e3e' }}>
                       {(Number(exp.amount) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                      <button 
-                        onClick={() => {
-                          setEditingExpense(exp);
-                          setIsModalOpen(true);
-                        }}
-                        style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}
-                        title="Editar gasto"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteExpense(exp.id, exp.description)}
-                        style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '2px' }}
-                        title="Borrar gasto"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    {!isReadOnly && (
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '4px' }}>
+                        <button 
+                          onClick={() => {
+                            setEditingExpense(exp);
+                            setIsModalOpen(true);
+                          }}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}
+                          title="Editar gasto"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteExpense(exp.id, exp.description)}
+                          style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '2px' }}
+                          title="Borrar gasto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
