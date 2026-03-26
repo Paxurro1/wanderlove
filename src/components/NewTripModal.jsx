@@ -367,7 +367,7 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.9rem' }}>Privacidad de Fotos/Docs</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.9rem' }}>Privacidad de Documentos</label>
                   <div
                     onClick={() => setFormData({...formData, documents_public: !formData.documents_public})}
                     style={{
@@ -411,14 +411,18 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                       </span>
                     </div>
                   </div>
+                </div>
 
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.9rem' }}>Privacidad de Fotos</label>
                   {/* FOTOS Público/Privado Toggle */}
                   <div 
                     onClick={() => setFormData({...formData, photos_public: !formData.photos_public})}
                     style={{ 
                       display: 'flex', alignItems: 'center', gap: '12px', 
-                      background: 'var(--color-bg)', padding: '12px', borderRadius: '8px',
-                      cursor: 'pointer', border: `1px solid ${formData.photos_public ? 'rgba(56,161,105,0.3)' : 'rgba(231,76,60,0.3)'}`,
+                      background: formData.photos_public ? 'rgba(56,161,105,0.06)' : 'rgba(231,76,60,0.06)', 
+                      padding: '8px 12px', borderRadius: '8px',
+                      cursor: 'pointer', border: `1px solid ${formData.photos_public ? 'rgba(56,161,105,0.4)' : 'rgba(231,76,60,0.4)'}`,
                       transition: 'all 0.2s',
                       userSelect: 'none'
                     }}
