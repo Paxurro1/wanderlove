@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Car, MapPin, Clock, Edit2, Trash2, Shield, Fuel } from 'lucide-react';
 import NewRentalModal from './NewRentalModal';
 
-export default function TripRentals({ tripId, trip }) {
+export default function TripRentals({ tripId, trip, isReadOnly, hidePrices }) {
   const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -71,21 +71,25 @@ export default function TripRentals({ tripId, trip }) {
             <Car size={24} className="text-primary" /> 
             Coches de Alquiler
           </h3>
-          <p style={{ color: 'var(--color-text-muted)', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
-            Total gastado: {totalSpent.toFixed(2)}€
-          </p>
+          {!hidePrices && (
+            <p style={{ color: 'var(--color-text-muted)', margin: '4px 0 0 0', fontSize: '0.9rem' }}>
+              Total gastado: {totalSpent.toFixed(2)}€
+            </p>
+          )}
         </div>
         
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            setEditingRental(null);
-            setIsModalOpen(true);
-          }}
-          style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <Car size={16} /> Añadir Coche
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn-primary" 
+            onClick={() => {
+              setEditingRental(null);
+              setIsModalOpen(true);
+            }}
+            style={{ padding: '8px 16px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Car size={16} /> Añadir Coche
+          </button>
+        )}
       </div>
 
       {rentals.length === 0 ? (
@@ -116,24 +120,29 @@ export default function TripRentals({ tripId, trip }) {
                       <Shield size={14} /> 
                       Seguro: <span style={{ textTransform: 'capitalize' }}>{rental.insurance_type.replace('_', ' ')}</span>
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', fontWeight: 600 }}>
-                      Precio: {Number(rental.price || 0).toFixed(2)}€
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#e67e22', fontWeight: 600 }}>
-                      <Fuel size={14} /> 
-                      Gasolina: {Number(rental.gas_cost || 0).toFixed(2)}€
-                    </span>
+                    {!hidePrices && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        Precio: {Number(rental.price || 0).toFixed(2)}€
+                      </span>
+                    )}
+                    {!hidePrices && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#e67e22', fontWeight: 600 }}>
+                        <Fuel size={14} /> 
+                        Gasolina: {Number(rental.gas_cost || 0).toFixed(2)}€
+                      </span>
+                    )}
                   </div>
                 </div>
-                
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => handleEdit(rental)} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: 'var(--color-text-main)' }}>
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(rental.id)} style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: '#c53030' }}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                {!isReadOnly && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => handleEdit(rental)} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: 'var(--color-text-main)' }}>
+                      <Edit2 size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(rental.id)} style={{ background: '#fff5f5', border: '1px solid #feb2b2', padding: '6px', borderRadius: '6px', cursor: 'pointer', color: '#c53030' }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', background: 'var(--color-bg)', padding: '16px', borderRadius: '8px' }}>

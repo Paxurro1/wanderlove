@@ -30,7 +30,7 @@ const getLabelForType = (type) => {
   }
 };
 
-export default function TripAccommodations({ tripId }) {
+export default function TripAccommodations({ tripId, isReadOnly, hidePrices }) {
   // -- ESTADOS LOCALES --
   const [accommodations, setAccommodations] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -118,16 +118,18 @@ export default function TripAccommodations({ tripId }) {
           </h3>
           <p style={{ color: 'var(--color-text-muted)', margin: 'var(--spacing-xs) 0 0 0' }}>Hoteles, Campings y zonas de pernocta libre.</p>
         </div>
-        <button 
-          className="btn-primary" 
-          onClick={() => {
-            setEditingAccommodation(null);
-            setIsModalOpen(true);
-          }}
-          style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
-        >
-          <Plus size={16} /> Añadir Alojamiento
-        </button>
+        {!isReadOnly && (
+          <button 
+            className="btn-primary" 
+            onClick={() => {
+              setEditingAccommodation(null);
+              setIsModalOpen(true);
+            }}
+            style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+          >
+            <Plus size={16} /> Añadir Alojamiento
+          </button>
+        )}
       </div>
 
       {/* Lista de cards de alojamientos */}
@@ -156,7 +158,7 @@ export default function TripAccommodations({ tripId }) {
                 <h4 style={{ margin: 0, fontSize: '1.2rem' }}>{acc.name}</h4>
                 {/* Visualización del coste o etiqueta de Gratis */}
                 <div style={{ fontWeight: 'bold', fontSize: '1.2rem', textAlign: 'right' }}>
-                  {Number(acc.cost).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
+                  {!hidePrices && Number(acc.cost).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                   {acc.type === 'camper_free' && <div style={{ fontSize: '0.8rem', color: 'var(--color-success)', fontWeight: 'normal' }}>Gratis</div>}
                 </div>
               </div>
@@ -208,25 +210,27 @@ export default function TripAccommodations({ tripId }) {
               )}
 
               {/* Botones de acción (Editar/Borrar) */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
-                <button 
-                  onClick={() => {
-                    setEditingAccommodation(acc);
-                    setIsModalOpen(true);
-                  }}
-                  style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
-                  title="Editar"
-                >
-                  <Pencil size={16} />
-                </button>
-                <button 
-                  onClick={() => handleDeleteAccommodation(acc.id, acc.name)}
-                  style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
-                  title="Borrar"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', justifyContent: 'center' }}>
+                  <button 
+                    onClick={() => {
+                      setEditingAccommodation(acc);
+                      setIsModalOpen(true);
+                    }}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}
+                    title="Editar"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteAccommodation(acc.id, acc.name)}
+                    style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}
+                    title="Borrar"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}

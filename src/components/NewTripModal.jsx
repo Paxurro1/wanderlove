@@ -25,7 +25,8 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
     start_date: '',
     end_date: '',
     cover_image: '',
-    is_public: false
+    is_public: false,
+    expenses_public: false
   });
 
   // Función auxiliar para convertir formato ISO a datetime-local (YYYY-MM-DDTHH:mm)
@@ -45,12 +46,13 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
           start_date: formatForInput(editingTrip.start_date),
           end_date: formatForInput(editingTrip.end_date),
           cover_image: editingTrip.cover_image || '',
-          is_public: editingTrip.is_public || false
+          is_public: editingTrip.is_public || false,
+          expenses_public: editingTrip.expenses_public || false
         });
         setSelectedFriends([]);
         fetchParticipants(editingTrip.id);
       } else {
-        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '', is_public: false });
+        setFormData({ destination: '', start_date: '', end_date: '', cover_image: '', is_public: false, expenses_public: false });
         setSelectedFriends([]);
         setExistingParticipants([]);
       }
@@ -120,7 +122,8 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
         cover_image: formData.cover_image || 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&q=80&w=1000',
         status: new Date(formData.start_date) > new Date() ? 'upcoming' : 'past',
         owner_id: user.id,
-        is_public: formData.is_public
+        is_public: formData.is_public,
+        expenses_public: formData.expenses_public
       };
 
       let result;
@@ -308,6 +311,56 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
                 </span>
               </div>
             </div>
+
+            {/* Sub-opción: Gastos Públicos/Privados (Solo visible si el viaje es público) */}
+            {formData.is_public && (
+              <div style={{ marginTop: '12px', paddingLeft: '16px', borderLeft: '2px solid rgba(118,75,162,0.3)' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontWeight: 500, fontSize: '0.9rem' }}>Privacidad Económica</label>
+                <div
+                  onClick={() => setFormData({...formData, expenses_public: !formData.expenses_public})}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: `1px solid ${formData.expenses_public ? 'rgba(56,161,105,0.4)' : 'rgba(231,76,60,0.4)'}`,
+                    background: formData.expenses_public ? 'rgba(56,161,105,0.06)' : 'rgba(231,76,60,0.06)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    userSelect: 'none'
+                  }}
+                >
+                  <div style={{
+                    width: '36px', height: '20px',
+                    borderRadius: '10px',
+                    background: formData.expenses_public ? '#38a169' : '#e74c3c',
+                    position: 'relative',
+                    transition: 'background 0.2s',
+                    flexShrink: 0
+                  }}>
+                    <div style={{
+                      position: 'absolute',
+                      top: '2px',
+                      left: formData.expenses_public ? '18px' : '2px',
+                      width: '16px', height: '16px',
+                      borderRadius: '50%',
+                      background: 'white',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                      transition: 'left 0.2s'
+                    }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 600, color: formData.expenses_public ? '#38a169' : '#e74c3c', fontSize: '0.85rem' }}>
+                      {formData.expenses_public ? 'Gastos visibles al público' : 'Gastos ocultos al público'}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      {formData.expenses_public ? 'Todos pueden ver importes en Gastos, Alojamientos, etc.' : 'Nadie ajeno al viaje verá datos de dinero.'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Campo URL Imagen */}

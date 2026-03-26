@@ -17,6 +17,7 @@ const Auth = () => {
   
   const navigate = useNavigate();
 
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -61,20 +62,6 @@ const Auth = () => {
       setError(error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) throw error;
-    } catch (error) {
-      setError(error.message);
     }
   };
 
@@ -190,19 +177,6 @@ const Auth = () => {
             {!loading && <ArrowRight size={18} />}
           </button>
         </form>
-
-        {(view === 'login' || view === 'register') && (
-          <>
-            <div className="auth-divider">
-              <span>O continúa con</span>
-            </div>
-
-            <button onClick={handleGoogleLogin} className="google-btn">
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/layout/google.svg" alt="Google" />
-              Google
-            </button>
-          </>
-        )}
 
         <div className="auth-footer">
           {view === 'login' && (

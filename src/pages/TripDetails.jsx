@@ -219,15 +219,17 @@ export default function TripDetails() {
     // A los componentes "hijo" (TripDocuments, TripExpenses, etc) les 
     // pasamos 'trip.id' como Prop (parámetro). Así ellos mismos pueden
     // descargar (fetch) solo la parte de su tabla en Supabase.
+    const hidePrices = isReadOnly && !(trip?.expenses_public);
+
     switch (activeTab) {
       case 'documents':
-        return <TripDocuments tripId={trip.id} />;
+        return <TripDocuments tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'transports':
-        return <TripTransports tripId={trip.id} />;
+        return <TripTransports tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'accommodations':
-        return <TripAccommodations tripId={trip.id} />;
+        return <TripAccommodations tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'rentals':
-        return <TripRentals tripId={trip.id} trip={trip} />;
+        return <TripRentals tripId={trip.id} trip={trip} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'map':
         return <TripMap tripId={trip.id} onAddPlace={() => {
           setModalTitle('Añadir Lugar');
@@ -645,9 +647,10 @@ export default function TripDetails() {
           gap: 'var(--spacing-sm)',
           marginBottom: 'var(--spacing-xl)'
         }}>
-          {/* Mapea dinámicamente cada botón del array 'TABS'. 
-              El que coincida con 'activeTab' se pinta con color primario. */}
-          {TABS.map(tab => (
+          {TABS.filter(tab => {
+            if (isReadOnly && !trip?.expenses_public && tab.id === 'expenses') return false;
+            return true;
+          }).map(tab => (
             <button
                // ... estilos intactos para el botón
               key={tab.id}
