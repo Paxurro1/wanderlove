@@ -181,7 +181,7 @@ export default function TripExpenses({ tripId, isReadOnly }) {
       </div>
 
       {/* --- SECCIÓN BALANCES --- */}
-      {participants.length > 0 && totalAmount > 0 && (
+      {!isReadOnly && participants.length > 0 && totalAmount > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
           <h4 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Balances</h4>
           <div style={{ 
@@ -259,27 +259,31 @@ export default function TripExpenses({ tripId, isReadOnly }) {
                 justifyContent: 'space-between', 
                 alignItems: 'center',
                 padding: 'var(--spacing-md)',
-                background: isPaid ? 'rgba(56,161,105,0.06)' : 'rgba(229,62,62,0.06)',
+                background: isReadOnly ? 'var(--color-surface)' : (isPaid ? 'rgba(56,161,105,0.06)' : 'rgba(229,62,62,0.06)'),
                 borderRadius: 'var(--border-radius)',
-                border: `1px solid ${isPaid ? 'rgba(56,161,105,0.35)' : 'rgba(229,62,62,0.35)'}`,
+                border: `1px solid ${isReadOnly ? 'var(--color-border)' : (isPaid ? 'rgba(56,161,105,0.35)' : 'rgba(229,62,62,0.35)')}`,
                 transition: 'all 0.2s'
               }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
-                    {isPaid
-                      ? <CheckCircle size={14} color="#38a169" />
-                      : <Clock size={14} color="#e53e3e" />}
+                    {!isReadOnly && (
+                      isPaid
+                        ? <CheckCircle size={14} color="#38a169" />
+                        : <Clock size={14} color="#e53e3e" />
+                    )}
                     <span>{exp.category}</span>
-                    <span style={{
-                      fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
-                      background: isPaid ? 'rgba(56,161,105,0.15)' : 'rgba(229,62,62,0.15)',
-                      color: isPaid ? '#38a169' : '#e53e3e'
-                    }}>
-                      {isPaid ? 'Pagado' : 'Pendiente'}
-                    </span>
+                    {!isReadOnly && (
+                      <span style={{
+                        fontSize: '0.7rem', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                        background: isPaid ? 'rgba(56,161,105,0.15)' : 'rgba(229,62,62,0.15)',
+                        color: isPaid ? '#38a169' : '#e53e3e'
+                      }}>
+                        {isPaid ? 'Pagado' : 'Pendiente'}
+                      </span>
+                    )}
                   </div>
                   <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '2px' }}>{exp.description}</div>
-                  {exp.profiles && (
+                  {!isReadOnly && exp.profiles && (
                     <div style={{ 
                       display: 'flex', alignItems: 'center', gap: '4px', 
                       fontSize: '0.75rem', color: 'var(--color-text-muted)', 
@@ -295,7 +299,7 @@ export default function TripExpenses({ tripId, isReadOnly }) {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isPaid ? '#38a169' : '#e53e3e' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: isReadOnly ? 'var(--color-text-main)' : (isPaid ? '#38a169' : '#e53e3e') }}>
                       {(Number(exp.amount) || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}
                     </div>
                     {!isReadOnly && (

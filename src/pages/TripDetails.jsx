@@ -439,8 +439,11 @@ export default function TripDetails() {
                           }}
                         >
                           <div>
-                            <div style={{ fontWeight: 600 }}>{place.name}</div>
-                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</div>
+                            <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {place.activity_time && <span style={{ color: 'var(--color-primary)', fontSize: '0.9rem', background: 'rgba(118,75,162,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{place.activity_time}</span>}
+                              {place.name}
+                            </div>
+                            <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{place.reason}</div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {!isReadOnly && (
@@ -606,7 +609,7 @@ export default function TripDetails() {
           </p>
 
           {/* Participants row */}
-          {participants.length > 0 && (
+          {!isReadOnly && participants.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 'var(--spacing-md)', flexWrap: 'wrap' }}>
               <Users size={16} />
               {participants.map(p => (
@@ -649,6 +652,7 @@ export default function TripDetails() {
         }}>
           {TABS.filter(tab => {
             if (isReadOnly && !trip?.expenses_public && tab.id === 'expenses') return false;
+            if (isReadOnly && !trip?.documents_public && tab.id === 'documents') return false;
             return true;
           }).map(tab => (
             <button

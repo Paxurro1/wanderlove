@@ -18,7 +18,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
     reason: '',
     day_index: 1,
     lat: 0,
-    lng: 0
+    lng: 0,
+    activity_time: ''
   });
 
   useEffect(() => {
@@ -28,11 +29,12 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         reason: editingPlace.reason || '',
         day_index: editingPlace.day_index || 1,
         lat: editingPlace.lat || 0,
-        lng: editingPlace.lng || 0
+        lng: editingPlace.lng || 0,
+        activity_time: editingPlace.activity_time || ''
       });
       setSearchQuery(editingPlace.name || '');
     } else {
-      setFormData({ name: '', reason: '', day_index: 1, lat: 0, lng: 0 });
+      setFormData({ name: '', reason: '', day_index: 1, lat: 0, lng: 0, activity_time: '' });
       setSearchQuery('');
       setSearchResults([]);
     }
@@ -80,7 +82,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         day_index: parseInt(formData.day_index, 10),
         lat: formData.lat,
         lng: formData.lng,
-        visited: editingPlace ? editingPlace.visited : false
+        visited: editingPlace ? editingPlace.visited : false,
+        activity_time: formData.activity_time || null
       };
 
       let result;
@@ -112,40 +115,52 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         </h2>
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-          {/* Selector de día con fechas reales */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <label style={{ fontWeight: 500 }}>Día del viaje:</label>
-            {tripStartDate && tripEndDate ? (() => {
-              const start = new Date(tripStartDate);
-              const end = new Date(tripEndDate);
-              const diffMs = end - start;
-              const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
-              return (
-                <select
+          {/* Selector de día con fechas reales y Hora */}
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Día del viaje:</label>
+              {tripStartDate && tripEndDate ? (() => {
+                const start = new Date(tripStartDate);
+                const end = new Date(tripEndDate);
+                const diffMs = end - start;
+                const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
+                return (
+                  <select
+                    value={formData.day_index}
+                    onChange={e => setFormData({...formData, day_index: parseInt(e.target.value)})}
+                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', cursor: 'pointer', width: '100%' }}
+                  >
+                    {Array.from({ length: totalDays }, (_, i) => {
+                      const dayDate = new Date(start);
+                      dayDate.setDate(start.getDate() + i);
+                      const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+                      return (
+                        <option key={i + 1} value={i + 1}>
+                          Día {i + 1} – {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                );
+              })() : (
+                <input
+                  type="number" min="1" required
                   value={formData.day_index}
-                  onChange={e => setFormData({...formData, day_index: parseInt(e.target.value)})}
-                  style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', cursor: 'pointer' }}
-                >
-                  {Array.from({ length: totalDays }, (_, i) => {
-                    const dayDate = new Date(start);
-                    dayDate.setDate(start.getDate() + i);
-                    const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-                    return (
-                      <option key={i + 1} value={i + 1}>
-                        Día {i + 1} – {label}
-                      </option>
-                    );
-                  })}
-                </select>
-              );
-            })() : (
+                  onChange={e => setFormData({...formData, day_index: e.target.value})}
+                  style={{ width: '70px', padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', textAlign: 'center' }}
+                />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label style={{ fontWeight: 500 }}>Hora:</label>
               <input
-                type="number" min="1" required
-                value={formData.day_index}
-                onChange={e => setFormData({...formData, day_index: e.target.value})}
-                style={{ width: '70px', padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', textAlign: 'center' }}
+                type="time"
+                value={formData.activity_time}
+                onChange={e => setFormData({...formData, activity_time: e.target.value})}
+                style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
               />
-            )}
+            </div>
           </div>
 
           {/* Buscador de Lugar */}
