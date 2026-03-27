@@ -34,10 +34,15 @@ export default function TripExpenses({ tripId, isReadOnly }) {
     fetchExpenses();
   }, [tripId]);
 
-  // Función para obtener los gastos y participantes
+  /**
+   * Obtiene todos los gastos del viaje y la lista de participantes.
+   * La lógica de participantes incluye una comprobación manual del dueño (owner)
+   * para asegurar que siempre aparezca en los balances, incluso en viajes antiguos
+   * donde el dueño no se autoinvitaba explícitamente.
+   */
   const fetchExpenses = async () => {
     try {
-      // 1. Fetch Expenses
+      // 1. Obtener gastos con información del perfil de quien pagó (paid_by)
       const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
         .select('*, profiles:paid_by(id, full_name, avatar_url)')
@@ -47,7 +52,7 @@ export default function TripExpenses({ tripId, isReadOnly }) {
       if (expensesError) throw expensesError;
       setExpenses(expensesData || []);
 
-      // 2. Fetch Participants for Balances
+      // 2. Obtener lista de participantes aceptados para calcular repartos
       const { data: participantsData, error: participantsError } = await supabase
         .from('trip_participants')
         .select('profiles:user_id(id, full_name, avatar_url)')
@@ -58,7 +63,7 @@ export default function TripExpenses({ tripId, isReadOnly }) {
       
       const allParticipants = participantsData ? participantsData.map(p => p.profiles).filter(Boolean) : [];
       
-      // 3. Fetch Trip Owner manually to ensure they are included (for retrocompatibility with older trips)
+      // 3. Obtener el dueño del viaje para asegurar su presencia en los balances
       const { data: tripInfo, error: tripInfoError } = await supabase
         .from('trips')
         .select('owner_id')
@@ -180,19 +185,24 @@ export default function TripExpenses({ tripId, isReadOnly }) {
         </div>
       </div>
 
-      {/* --- SECCIÓN BALANCES --- */}
+      {/* 
+        --- SECCIÓN BALANCES --- 
+        Calcula cuánto le corresponde pagar a cada uno (Gasto Total / Participantes) 
+        y lo compara con lo que ya han pagado realmente. 
+      */}
       {!isReadOnly && participants.length > 0 && totalAmount > 0 && (
         <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-          <h4 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Balances</h4>
+          <h4 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Balances y Cuentas</h4>
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
             gap: 'var(--spacing-sm)' 
           }}>
             {(() => {
+              // Gasto equitativo por cabeza
               const sharePerPerson = totalAmount / participants.length;
               
-              // Map de gastos por usuario
+              // Map para acumular lo que ha pagado cada usuario
               const paidByUser = {};
               participants.forEach(p => paidByUser[p.id] = 0);
               
@@ -205,12 +215,12 @@ export default function TripExpenses({ tripId, isReadOnly }) {
               return participants.map(p => {
                 const paid = paidByUser[p.id];
                 const balance = paid - sharePerPerson;
-                const isOwed = balance > 0;
-                const isEven = Math.abs(balance) < 0.01;
+                const isOwed = balance > 0; // Si el balance es positivo, este usuario pagó de más y le deben dinero.
+                const isEven = Math.abs(balance) < 0.01; // Margen para evitar errores de precisión flotante.
                 
                 let textColor = 'var(--color-text-muted)';
                 if (!isEven) {
-                  textColor = isOwed ? '#38a169' : '#e53e3e'; // Verde si le deben, Rojo si debe
+                  textColor = isOwed ? '#38a169' : '#e53e3e'; // Verde (Le deben) / Rojo (Debe dinero)
                 }
 
                 return (
@@ -225,12 +235,12 @@ export default function TripExpenses({ tripId, isReadOnly }) {
                         alt={p.full_name} 
                         style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
                       />
-                      <span style={{ fontWeight: 500, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {p.full_name.split(' ')[0]}
                       </span>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Pagó: {paid.toFixed(2)}€</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Pagó: {paid.toLocaleString('es-ES', { minimumFractionDigits: 2 })}€</div>
                       <div style={{ fontWeight: 'bold', color: textColor, marginTop: '2px' }}>
                         {isEven ? 'En paz' : (isOwed ? `Le deben ${balance.toFixed(2)}€` : `Debe ${Math.abs(balance).toFixed(2)}€`)}
                       </div>

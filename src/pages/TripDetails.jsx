@@ -62,21 +62,28 @@ export default function TripDetails() {
     fetchTripAndData();
   }, [id]);
 
-  // Carga los datos esenciales (El viaje y sus lugares) al entrar en la página
+  /**
+   * Carga masiva de datos del viaje:
+   * 1. Obtiene la info básica del viaje.
+   * 2. Obtiene los lugares del itinerario.
+   * 3. Obtiene los participantes aceptados.
+   * 4. Valida permisos: Si el usuario no es dueño ni participante, pero el viaje es público,
+   *    se activa el 'isReadOnly' (Solo lectura). Si es privado, se redirige al Dashboard.
+   */
   const fetchTripAndData = async () => {
     try {
       setLoading(true);
-      // 1. Fetch trip: Obtenemos el viaje cuyo ID coincide con la URL '.eq('id', id)'
+      // 1. Obtener datos del viaje
       const { data: tripData, error: tripError } = await supabase
         .from('trips')
         .select('*')
         .eq('id', id)
-        .single(); // '.single()' indica que esperamos 1 solo resultado (no un array)
+        .single();
         
       if (tripError) throw tripError;
       setTrip(tripData);
 
-      // 2. Fetch places: Obtenemos el itinerario asociado a este ID
+      // 2. Obtener lugares/aventuras del itinerario
       const { data: placeData, error: placeError } = await supabase
         .from('places')
         .select('*')
@@ -87,7 +94,7 @@ export default function TripDetails() {
         setPlaces(placeData);
       }
 
-      // 3. Fetch participants (accepted)
+      // 3. Obtener participantes que han aceptado la invitación
       const { data: participantData, error: participantError } = await supabase
         .from('trip_participants')
         .select('user_id, status, profiles:user_id(id, full_name, email, avatar_url)')
@@ -95,10 +102,10 @@ export default function TripDetails() {
         .eq('status', 'accepted');
       
       if (participantError) {
-        console.warn('Participants fetch error (may be RLS):', participantError.message);
+        console.warn('Error cargando participantes:', participantError.message);
       }
 
-      // 4. Fetch owner profile to ensure owner always appears even for old trips
+      // 4. Obtener el perfil del dueño (aseguramos que aparezca siempre)
       const { data: ownerProfile } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url')
@@ -108,7 +115,6 @@ export default function TripDetails() {
       const acceptedParticipants = participantData || [];
       const ownerAlreadyIncluded = acceptedParticipants.some(p => p.user_id === tripData.owner_id);
       
-      // If owner is not in the accepted participants list (old trips), add them
       if (!ownerAlreadyIncluded && ownerProfile) {
         acceptedParticipants.unshift({
           user_id: tripData.owner_id,
@@ -119,22 +125,20 @@ export default function TripDetails() {
 
       setParticipants(acceptedParticipants);
 
-      // Determine read-only mode:
-      // user is owner or accepted participant → full access
-      // user is not owner/participant AND trip is public → read-only
-      // user is not owner/participant AND trip is private → redirect home
+      // 5. DETERMINAR PERMISOS (Lógica de acceso)
       const isOwner = tripData.owner_id === user?.id;
       const isParticipant = acceptedParticipants.some(p => p.user_id === user?.id);
+      
       if (!isOwner && !isParticipant) {
         if (tripData.is_public) {
-          setIsReadOnly(true);
+          setIsReadOnly(true); // El usuario no "pertenece" al viaje pero puede verlo (es público)
         } else {
-          // Private trip, no access → redirect
+          // El viaje es privado y el usuario no tiene acceso: Redirigir fuera
           navigate('/');
           return;
         }
       } else {
-        setIsReadOnly(false);
+        setIsReadOnly(false); // Es dueño o participante: Acceso total
       }
 
     } catch (error) {
@@ -255,6 +259,13 @@ export default function TripDetails() {
 
         const sortedDays = Object.keys(placesGrouped).sort((a,b) => Number(a) - Number(b));
 
+        /**
+         * Lógica de reordenamiento de lugares (Arrastrar arriba/abajo):
+         * 1. Calcula la nueva posición del elemento.
+         * 2. Si se mueve al límite de un día, salta al día anterior o siguiente automáticamente.
+         * 3. Realiza una actualización "optimista" en el estado local (React) para respuesta inmediata.
+         * 4. Sincroniza con Supabase mediante 'upsert' de los nuevos índices.
+         */
         const movePlace = async (place, direction) => {
           const currentDayId = parseInt(place.day_index || 1, 10);
           const currentDayItems = [...(placesGrouped[currentDayId] || [])];
@@ -265,7 +276,7 @@ export default function TripDetails() {
 
           if (direction === 'up') {
             if (currentIndex > 0) {
-              // Swap within the same day
+              // Mover hacia arriba dentro del mismo día
               const temp = currentDayItems[currentIndex - 1];
               currentDayItems[currentIndex - 1] = currentDayItems[currentIndex];
               currentDayItems[currentIndex] = temp;
@@ -278,19 +289,15 @@ export default function TripDetails() {
                 return up ? up : p;
               });
             } else {
-              // Move to the previous day if it exists
+              // Mover al día anterior
               const prevDayId = currentDayId - 1;
-              if (prevDayId >= 1) { // Assuming day 1 is minimum
+              if (prevDayId >= 1) {
                 const prevDayItems = [...(placesGrouped[prevDayId] || [])];
-                
-                // Remove from current day
                 currentDayItems.splice(currentIndex, 1);
                 
-                // Add to end of previous day
                 const movedPlace = { ...place, day_index: prevDayId };
-                prevDayItems.push(movedPlace);
+                prevDayItems.push(movedPlace); // Lo ponemos al final del día anterior
                 
-                // Update order indices for both days
                 const updatedPrevDay = prevDayItems.map((p, idx) => ({ ...p, order_index: idx }));
                 const updatedCurrentDay = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
                 
@@ -301,12 +308,12 @@ export default function TripDetails() {
                   return up ? up : p;
                 });
               } else {
-                return; // Cannot move higher than top of Day 1
+                return; // Ya estamos en el tope del Día 1
               }
             }
           } else if (direction === 'down') {
             if (currentIndex < currentDayItems.length - 1) {
-              // Swap within the same day
+              // Mover hacia abajo dentro del mismo día
               const temp = currentDayItems[currentIndex + 1];
               currentDayItems[currentIndex + 1] = currentDayItems[currentIndex];
               currentDayItems[currentIndex] = temp;
@@ -319,26 +326,20 @@ export default function TripDetails() {
                 return up ? up : p;
               });
             } else {
-              // Move to the next day
+              // Mover al día siguiente
               const nextDayId = currentDayId + 1;
-              
-              // Only allow moving to next day if it's within trip boundaries
               const start = new Date(trip.start_date);
               const end = new Date(trip.end_date);
-              const diffMs = end - start;
-              const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
+              const totalDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
               
               if (nextDayId <= totalDays) {
                 const nextDayItems = [...(placesGrouped[nextDayId] || [])];
-                
-                // Remove from current day
                 currentDayItems.splice(currentIndex, 1);
                 
-                // Add to start of next day
                 const movedPlace = { ...place, day_index: nextDayId };
-                nextDayItems.unshift(movedPlace);
+                movedPlace.order_index = 0;
+                nextDayItems.unshift(movedPlace); // Lo ponemos al principio del día siguiente
                 
-                // Update order indices for both days
                 const updatedNextDay = nextDayItems.map((p, idx) => ({ ...p, order_index: idx }));
                 const updatedCurrentDay = currentDayItems.map((p, idx) => ({ ...p, order_index: idx }));
                 
@@ -349,17 +350,15 @@ export default function TripDetails() {
                   return up ? up : p;
                 });
               } else {
-                return; // Cannot move below bottom of last day
+                return; // Ya es el último día del viaje
               }
             }
-          } else {
-            return;
           }
 
-          // Optimistic local update
+          // Actualización optimista de la UI
           setPlaces(newAllPlaces);
 
-          // Background DB update
+          // Sincronización asíncrona con la DB
           try {
             const dbUpdates = updates.map(p => ({
               id: p.id,
@@ -376,7 +375,7 @@ export default function TripDetails() {
             if (error) throw error;
           } catch (error) {
             console.error('Error guardando el nuevo orden:', error);
-            fetchTripAndData(); // revert
+            fetchTripAndData(); // Si falla, revertimos al estado de la DB
           }
         };
 
@@ -554,12 +553,17 @@ export default function TripDetails() {
 
   return (
     <div className="animate-fade-in">
-      {/* Cabecera (Hero) del Viaje con foto de portada dinámica superpuesta */}
+      {/* 
+        CABECERA (Hero) del Viaje:
+        - Muestra la imagen de portada con un degradado para legibilidad.
+        - Botón de retorno al Dashboard.
+        - Insignias de Privacidad (Público/Privado) y estado de Lectura.
+        - Lista de avatares/nombres de los participantes.
+      */}
       <header style={{ 
         position: 'relative', 
         height: '350px',
         objectFit: 'cover',
-        // Imagen inyectada por URL directa, con un gradiente negro para asegurar que el texto blanco sea legible
         background: `linear-gradient(to bottom, rgba(0,0,0,0.1), var(--color-bg)), url(${trip.cover_image}) center/cover no-repeat`,
         display: 'flex',
         flexDirection: 'column',
@@ -641,11 +645,15 @@ export default function TripDetails() {
         </div>
       </header>
 
-      {/* Menú de Navegación de Pestañas (Tabs) */}
+      {/* 
+        MENÚ DE NAVEGACIÓN (Tabs):
+        - Permite cambiar entre Itinerario, Mapa, Gastos, etc.
+        - Filtra pestañas privadas (Docs, Fotos, Gastos) si el visitante no tiene permiso.
+      */}
       <div className="container" style={{ marginTop: '-40px', position: 'relative', zIndex: 10 }}>
         <div className="glass-panel" style={{ 
           display: 'flex', 
-          overflowX: 'auto', // Permite scroll horizontal en móviles sin romper diseño
+          overflowX: 'auto', // Scroll horizontal para móviles
           padding: 'var(--spacing-sm)',
           gap: 'var(--spacing-sm)',
           marginBottom: 'var(--spacing-xl)'

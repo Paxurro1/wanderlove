@@ -1,3 +1,10 @@
+// ============================================================================
+// ARCHIVO: Dashboard.jsx
+// DESCRIPCIÓN: Panel principal de la aplicación.
+// Muestra un resumen de los viajes actuales, próximos y pasados.
+// Permite buscar viajes públicos de otros usuarios.
+// ============================================================================
+
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Plane, Calendar, Plus, X, Globe, Users, User, Lock, Search } from 'lucide-react';
@@ -7,18 +14,25 @@ import NewTripModal from '../components/NewTripModal';
 import ConfirmModal from '../components/Common/ConfirmModal';
 
 export default function Dashboard() {
+  // Datos del usuario y perfil desde el contexto de autenticación
   const { user, profile } = useAuth();
-  const [trips, setTrips] = useState([]);
-  const [upcomingTrip, setUpcomingTrip] = useState(null);
-  const [ongoingTrips, setOngoingTrips] = useState([]);
-  const [timeLeft, setTimeLeft] = useState('');
+  
+  // Estados para gestionar las listas de viajes
+  const [trips, setTrips] = useState([]);           // Todos los viajes vinculados al usuario
+  const [upcomingTrip, setUpcomingTrip] = useState(null); // El próximo viaje más cercano
+  const [ongoingTrips, setOngoingTrips] = useState([]);   // Viajes que están ocurriendo ahora mismo
+  const [timeLeft, setTimeLeft] = useState('');     // Texto de la cuenta atrás para el próximo viaje
+  
+  // Estados de control de la interfaz (modales, carga, confirmaciones)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTrip, setEditingTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, tripId: null, destination: '' });
-  const [pendingFriends, setPendingFriends] = useState(0);
-  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
-  const [tripParticipants, setTripParticipants] = useState({});
+  
+  // Notificaciones y participantes
+  const [pendingFriends, setPendingFriends] = useState(0);       // Solicitudes de amistad pendientes
+  const [pendingInvitesCount, setPendingInvitesCount] = useState(0); // Invitaciones a viajes pendientes
+  const [tripParticipants, setTripParticipants] = useState({});   // Mapa de participantes por ID de viaje
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,11 +40,17 @@ export default function Dashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // Efecto inicial: Cargar viajes y notificaciones al montar el componente
+  // También se dispara cuando se cierra el modal de creación para refrescar la lista.
   useEffect(() => {
     fetchTrips();
     fetchNotifications();
   }, [isModalOpen]);
 
+  /**
+   * Obtiene el recuento de solicitudes de amistad e invitaciones pendientes
+   * para mostrar insignias (badges) en los botones superiores.
+   */
   const fetchNotifications = async () => {
     if (!user) return;
     const { count: fc } = await supabase
@@ -48,10 +68,19 @@ export default function Dashboard() {
     setPendingInvitesCount(ic || 0);
   };
 
+  /**
+   * Proceso de carga de viajes complejo:
+   * 1. Obtiene viajes donde el usuario es dueño.
+   * 2. Obtiene viajes donde el usuario es participante aceptado.
+   * 3. Combina y ordena por fecha de inicio.
+   * 4. Identifica viajes "En Curso" y el "Próximo" para el Hero.
+   * 5. Carga perfiles de todos los participantes para mostrar sus nombres en las tarjetas.
+   */
   const fetchTrips = async () => {
     try {
       const now = new Date().toISOString();
 
+      // Consultamos viajes propiedad del usuario
       const { data: ownedData, error: ownedError } = await supabase
         .from('trips')
         .select('*')
@@ -60,6 +89,7 @@ export default function Dashboard() {
 
       if (ownedError) throw ownedError;
 
+      // Consultamos viajes donde el usuario ha aceptado una invitación
       const { data: participantData, error: participantError } = await supabase
         .from('trip_participants')
         .select('trip_id, trips(*)')
@@ -73,22 +103,24 @@ export default function Dashboard() {
         .map(p => p.trips)
         .filter(t => t && !ownedIds.has(t.id));
 
+      // Mezclamos y ordenamos cronológicamente
       const allTrips = [...(ownedData || []), ...acceptedTrips]
         .sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
       setTrips(allTrips);
 
       const nowDate = new Date();
-      // Ongoing: start_date <= now <= end_date
+      // Filtramos viajes "En Curso": Hoy está entre fecha inicio y fin
       const ongoing = allTrips.filter(t =>
         new Date(t.start_date) <= nowDate && new Date(t.end_date) >= nowDate
       );
       setOngoingTrips(ongoing);
 
-      // Next upcoming trip (strictly in the future AND not ongoing)
+      // Siguiente viaje: El primero en el futuro que no esté ocurriendo ya
       const next = allTrips.find(t => new Date(t.start_date) > nowDate);
       setUpcomingTrip(next);
 
+      // Si hay viajes, buscamos quién más participa en cada uno para las tarjetas
       if (allTrips.length > 0) {
         const tripIds = allTrips.map(t => t.id);
         const { data: pData } = await supabase
@@ -113,6 +145,7 @@ export default function Dashboard() {
             byTrip[p.trip_id].push(p.profiles);
           });
 
+          // Aseguramos que el dueño también aparezca en la lista de participantes si no está
           allTrips.forEach(trip => {
             if (!byTrip[trip.id]) byTrip[trip.id] = [];
             const alreadyHasOwner = byTrip[trip.id].some(p => p?.id === trip.owner_id);
@@ -131,21 +164,27 @@ export default function Dashboard() {
     }
   };
 
-  // ── SEARCH ──────────────────────────────────────────────────────────────────
+  /**
+   * Lógica de búsqueda de viajes públicos:
+   * 1. Busca coincidencias por nombre de destino.
+   * 2. Busca paradas (places/aventuras) que coincidan y obtiene sus viajes relacionados.
+   * 3. Filtra solo aquellos que son públicos (`is_public: true`).
+   * 4. Deduplica resultados y actualiza el estado.
+   */
   const handleSearch = async () => {
     const q = searchQuery.trim();
     if (!q) return;
     setIsSearching(true);
     setHasSearched(true);
     try {
-      // 1. Public trips whose destination matches
+      // 1. Buscamos por destino (ej: "Londres")
       const { data: byDest } = await supabase
         .from('trips')
         .select('*')
         .eq('is_public', true)
         .ilike('destination', `%${q}%`);
 
-      // 2. Places whose name matches → get their trip_ids → fetch those public trips
+      // 2. Buscamos por paradas intermedias (ej: "Big Ben")
       const { data: byPlaces } = await supabase
         .from('places')
         .select('trip_id')
@@ -163,7 +202,7 @@ export default function Dashboard() {
         byStops = stopTrips || [];
       }
 
-      // Merge & deduplicate
+      // Combinar ambos resultados y eliminar duplicados por ID
       const seen = new Set();
       const merged = [...(byDest || []), ...byStops].filter(t => {
         if (seen.has(t.id)) return false;
@@ -186,10 +225,16 @@ export default function Dashboard() {
   };
   // ────────────────────────────────────────────────────────────────────────────
 
+  // Muestra el modal de confirmación antes de borrar
   const handleDeleteTrip = (id, destination) => {
     setConfirmModal({ isOpen: true, tripId: id, destination });
   };
 
+  /**
+   * Ejecuta el borrado real en la base de datos de Supabase.
+   * Gracias al CASCADE DELETE configurado en Postgres, se borrarán automáticamente
+   * todos los gastos, alojamientos y documentos vinculados.
+   */
   const executeDeleteTrip = async () => {
     const { tripId } = confirmModal;
     if (!tripId) return;
@@ -206,6 +251,8 @@ export default function Dashboard() {
     }
   };
 
+  // Efecto para la cuenta atrás del próximo viaje.
+  // Se actualiza cada minuto.
   useEffect(() => {
     if (!upcomingTrip) return;
     const calculateTimeLeft = () => {
@@ -223,17 +270,22 @@ export default function Dashboard() {
       }
     };
     calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000 * 60);
+    const timer = setInterval(calculateTimeLeft, 1000 * 60); // Actualizar cada minuto
     return () => clearInterval(timer);
   }, [upcomingTrip]);
 
+  // Lógica de filtrado de viajes para las distintas secciones de la UI
   const now = new Date();
   const pastTrips = trips
     .filter(t => new Date(t.end_date) < now)
-    .sort((a, b) => new Date(b.end_date) - new Date(a.end_date)); // newest first
+    .sort((a, b) => new Date(b.end_date) - new Date(a.end_date)); // Los más recientes primero
   const futureTrips = trips.filter(t => new Date(t.start_date) > now && t !== upcomingTrip);
 
-  // ── TRIP CARD ───────────────────────────────────────────────────────────────
+  /**
+   * Componente interno: Tarjeta de Viaje (TripCard)
+   * Renderiza la información de un viaje, incluyendo su estado (público/privado),
+   * imagen de portada y participantes.
+   */
   const TripCard = ({ trip, isOwner, readOnly = false }) => {
     const isOngoing = new Date(trip.start_date) <= now && new Date(trip.end_date) >= now;
     return (

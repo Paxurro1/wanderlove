@@ -27,11 +27,19 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
     if (tripId) fetchTransports();
   }, [tripId]);
 
+  /**
+   * Carga de datos de logística:
+   * Obtiene tanto los Trayectos (vuelos, trenes) como los Traslados/Parking.
+   * Ordena por hora de salida para mantener la cronología.
+   */
   const fetchTransports = async () => {
     try {
       setLoading(true);
+      // Obtener trayectos principales
       const resT = await supabase.from('transports').select('*').eq('trip_id', tripId).order('departure_time', { ascending: true });
+      // Obtener traslados secundarios (aeropuerto, parking)
       const resA = await supabase.from('airport_transfers').select('*').eq('trip_id', tripId).order('departure_time', { ascending: true });
+      
       setTransports(resT.data || []);
       setTransfers(resA.data || []);
     } catch (err) {

@@ -30,15 +30,20 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// -- COMPONENTE AUXILIAR: MapBounds --
-// Escucha cambios en los lugares y auto-ajusta el zoom/centro del mapa para que todos sean visibles.
+/**
+ * Componente AUXILIAR: MapBounds
+ * Se encarga de re-posicionar la "cámara" del mapa automáticamente.
+ * Siempre que la lista de lugares cambie (se añada o borre uno), el mapa hará
+ * un zoom out/in para que todos los puntos sean visibles simultáneamente.
+ */
 function MapBounds({ places }) {
   const map = useMap();
   useEffect(() => {
     if (places.length === 0) return;
-    // Creamos un área que abarque todas las coordenadas.
+    // Creamos un cuadro delimitador (bounds) que encierre todas las coordenadas
     const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]));
-    map.fitBounds(bounds, { padding: [50, 50] }); // Ajustamos el mapa con un margen de 50px.
+    // Aplicamos el cambio de vista con una animación suave y margen adicional
+    map.fitBounds(bounds, { padding: [50, 50] }); 
   }, [places, map]);
   return null;
 }
@@ -100,17 +105,32 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
           {/* Lógica de auto-enfoque */}
           {places.length > 0 && <MapBounds places={places} />}
           
-          {/* Renderizado de chinchetas (Markers) */}
+          {/* Renderizado dinámico de chinchetas (Markers) y sus Popups informativos */}
           {places.map(place => (
             <Marker key={place.id} position={[place.lat, place.lng]}>
               <Popup>
-                {/* Popup informativo al hacer click en un marcador */}
-                <div style={{ padding: '4px' }}>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{place.name}</h4>
-                  <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{place.reason}</p>
+                {/* Contenido del Popup al hacer click o tap sobre la chincheta */}
+                <div style={{ padding: '4px', minWidth: '150px' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: 'var(--color-primary)' }}>{place.name}</h4>
+                  <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</p>
+                  
+                  {/* El estado 'visitado' puede verse y modificarse directamente desde el mapa */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', cursor: 'pointer' }}>
-                    <input type="checkbox" defaultChecked={place.visited} disabled={isReadOnly} />
-                    <span style={{ fontSize: '0.9rem' }}>Marcado como visitado</span>
+                    <input 
+                      type="checkbox" 
+                      defaultChecked={place.visited} 
+                      disabled={isReadOnly} 
+                      onChange={async (e) => {
+                        if (isReadOnly) return;
+                        const newVisited = e.target.checked;
+                        const { error } = await supabase
+                          .from('places')
+                          .update({ visited: newVisited })
+                          .eq('id', place.id);
+                        if (!error) fetchPlaces(); // Refrescamos el mapa tras la actualización
+                      }}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>{place.visited ? '¡Visitado!' : 'Marcar visitado'}</span>
                   </label>
                 </div>
               </Popup>

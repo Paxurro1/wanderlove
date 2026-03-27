@@ -111,7 +111,15 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
   // Si el modal está cerrado, no renderizamos nada.
   if (!isOpen) return null;
 
-  // Manejador del envío del formulario
+  /**
+   * Manejador del envío del formulario:
+   * 1. Prepara el objeto de datos del viaje (tripData).
+   * 2. Determina el estado (upcoming/past) basado en la fecha de inicio.
+   * 3. Crea o actualiza el viaje en Supabase.
+   * 4. Gestiona participantes: Añade al dueño y a los amigos invitados.
+   * 5. Geolocalización: Si es un viaje nuevo, intenta obtener coordenadas del destino
+   *    automáticamente para crear el primer "Aventura/Place" en el mapa.
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -151,14 +159,14 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
       const tripId = result.data[0].id;
       
       if (tripId) {
-        // If it's a new trip, ensure the owner is added as an accepted participant
+        // Al crear un viaje, el dueño siempre se añade como participante aceptado automáticamente
         if (!editingTrip) {
           await supabase.from('trip_participants').insert([
             { trip_id: tripId, user_id: user.id, status: 'accepted' }
           ]);
         }
 
-        // Add newly invited friends with pending status
+        // Enviamos invitaciones (estado 'pending') a los amigos seleccionados
         if (selectedFriends.length > 0) {
           const participantsToInsert = [];
           selectedFriends.forEach(friendId => {
@@ -173,10 +181,10 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
         }
       }
 
-      // -- GEOLOCALIZACIÓN AUTOMÁTICA DEL DESTINO --
+      // -- GEOLOCALIZACIÓN AUTOMÁTICA --
+      // Solo para viajes nuevos: Intentamos buscar coordenadas del destino en OpenStreetMap (Nominatim)
       if (!editingTrip) {
         try {
-          // Buscamos las coordenadas del destino
           const geoResp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.destination)}&limit=1`);
           const geoData = await geoResp.json();
           
@@ -186,25 +194,24 @@ export default function NewTripModal({ isOpen, onClose, editingTrip }) {
               name: formData.destination,
               lat: parseFloat(geoData[0].lat),
               lng: parseFloat(geoData[0].lon),
-              visited: tripData.status === 'past', // Si el viaje es pasado, lo marcamos como visitado por defecto
-              reason: 'Destino del viaje',
+              visited: tripData.status === 'past', 
+              reason: 'Destino principal del viaje',
               day_index: 1
             };
             
+            // Creamos el primer marcador en el mapa de forma automática
             await supabase.from('places').insert([mainPlace]);
           }
         } catch (geoError) {
           console.error('Error al geolocalizar destino:', geoError);
-          // No bloqueamos la creación del viaje si falla el geocoding
+          // Si falla el geocoding, el viaje se crea igual, solo que sin marcador inicial
         }
       }
       
-      // Cerramos el modal tras el éxito.
-      onClose();
+      onClose(); // Cerrar el modal tras finalizar todo el proceso exitosamente
       
-      // Si era un viaje nuevo, redirigimos. Si era edición, nos quedamos donde estamos (el Dashboard refrescará).
       if (!editingTrip && result.data && result.data[0]) {
-        navigate(`/trip/${result.data[0].id}`);
+        navigate(`/trip/${result.data[0].id}`); // Redirigir al detalle del nuevo viaje
       }
     } catch (error) {
       alert('Error al procesar el viaje: ' + error.message);
