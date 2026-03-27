@@ -16,7 +16,8 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
     parking_cost: '',
     parking_duration: '',
     transfer_duration_mins: '',
-    cost: '' // Nuevo campo de coste general para BUS/AVE
+    cost: '', // Nuevo campo de coste general para BUS/AVE
+    departure_time: ''
   });
 
   useEffect(() => {
@@ -27,7 +28,8 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_cost: editingTransfer.parking_cost || '',
         parking_duration: editingTransfer.parking_duration || '',
         transfer_duration_mins: editingTransfer.transfer_duration_mins || '',
-        cost: editingTransfer.cost || ''
+        cost: editingTransfer.cost || '',
+        departure_time: editingTransfer.departure_time || ''
       });
     } else {
       setFormData({
@@ -36,7 +38,8 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_cost: '',
         parking_duration: '',
         transfer_duration_mins: '',
-        cost: ''
+        cost: '',
+        departure_time: ''
       });
     }
   }, [editingTransfer, isOpen]);
@@ -56,7 +59,8 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_cost: formData.parking_cost ? parseFloat(formData.parking_cost) : 0,
         parking_duration: formData.parking_duration || null,
         transfer_duration_mins: formData.transfer_duration_mins ? parseInt(formData.transfer_duration_mins, 10) : null,
-        cost: formData.cost ? parseFloat(formData.cost) : 0
+        cost: formData.cost ? parseFloat(formData.cost) : 0,
+        departure_time: formData.departure_time || null
       };
 
       let result;
@@ -110,23 +114,39 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>¿Cómo vais al aeropuerto?</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {['car', 'bus', 'ave'].map(t => (
+              {[
+                { id: 'car', label: 'Coche' },
+                { id: 'bus', label: 'Autobús' },
+                { id: 'ave', label: 'AVE' }
+              ].map(t => (
                 <button
-                  key={t} type="button"
-                  onClick={() => setFormData({...formData, type: t})}
+                  key={t.id} type="button"
+                  onClick={() => setFormData({...formData, type: t.id})}
                   style={{
                     flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)',
-                    background: formData.type === t ? 'var(--color-primary)' : 'var(--color-bg)',
-                    color: formData.type === t ? 'white' : 'var(--color-text-main)',
+                    background: formData.type === t.id ? 'var(--color-primary)' : 'var(--color-bg)',
+                    color: formData.type === t.id ? 'white' : 'var(--color-text-main)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s'
                   }}
                 >
-                  {t === 'car' && <Car size={18} />}
-                  {t === 'bus' && <Bus size={18} />}
-                  {t === 'ave' && <Train size={18} />}
-                  <span style={{ textTransform: 'capitalize' }}>{t}</span>
+                  {t.id === 'car' && <Car size={18} />}
+                  {t.id === 'bus' && <Bus size={18} />}
+                  {t.id === 'ave' && <Train size={18} />}
+                  <span>{t.label}</span>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Hora de salida</label>
+              <input 
+                type="datetime-local"
+                value={formData.departure_time ? formData.departure_time.slice(0, 16) : ''}
+                onChange={e => setFormData({...formData, departure_time: e.target.value})}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
+              />
             </div>
           </div>
 

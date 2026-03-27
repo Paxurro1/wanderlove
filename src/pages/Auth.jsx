@@ -74,7 +74,7 @@ const Auth = () => {
             <h1>WanderLove</h1>
           </div>
           <p>
-            {view === 'login' && 'Bienvenido de nuevo'}
+            {view === 'login' && 'Bienvenido de nuevo. Aquí comienza tu nueva aventura.'}
             {view === 'register' && 'Crea tu cuenta'}
             {view === 'forgot-password' && 'Recuperar contraseña'}
           </p>

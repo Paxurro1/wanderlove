@@ -31,7 +31,7 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
     try {
       setLoading(true);
       const resT = await supabase.from('transports').select('*').eq('trip_id', tripId).order('departure_time', { ascending: true });
-      const resA = await supabase.from('airport_transfers').select('*').eq('trip_id', tripId);
+      const resA = await supabase.from('airport_transfers').select('*').eq('trip_id', tripId).order('departure_time', { ascending: true });
       setTransports(resT.data || []);
       setTransfers(resA.data || []);
     } catch (err) {
@@ -62,6 +62,20 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
     setConfirmModal({ ...confirmModal, isOpen: false });
   };
 
+  const translateType = (type) => {
+    const types = {
+      'car': 'Coche',
+      'bus': 'Autobús',
+      'ave': 'AVE',
+      'train': 'Tren',
+      'flight': 'Vuelo',
+      'ship': 'Barco',
+      'ferry': 'Ferry',
+      'internal_flight': 'Vuelo Interno'
+    };
+    return types[type] || type;
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
       {/* TRASLADOS */}
@@ -74,11 +88,14 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
         </div>
         {transfers.length === 0 ? <p>No hay traslados.</p> : transfers.map(t => (
           <div key={t.id} className="item-card" style={{ background: 'var(--color-surface)', padding: '12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', marginBottom: '8px', border: '1px solid var(--color-border)' }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>Traslado: {t.type}</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-                {t.transfer_duration_mins} min trayecto
-                {t.parking_cost > 0 && !hidePrices && ` • Parking: ${Number(t.parking_cost).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Clock size={16} color="var(--color-text-muted)" />
+              <div>
+                <div style={{ fontWeight: 600 }}>{translateType(t.type)} {t.departure_time && <span style={{ fontWeight: 400, color: 'var(--color-primary)', marginLeft: '8px' }}>({safeFormatTime(t.departure_time)})</span>}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  {t.transfer_duration_mins} min trayecto
+                  {t.parking_cost > 0 && !hidePrices && ` • Parking: ${Number(t.parking_cost).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}`}
+                </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
