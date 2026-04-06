@@ -218,6 +218,7 @@ export default function TripDetails() {
           start_date: trip.start_date,
           end_date: trip.end_date,
           cover_image: trip.cover_image,
+          status: new Date(trip.start_date) > new Date() ? 'upcoming' : 'past',
           is_public: false // Por defecto privado
         }])
         .select()
