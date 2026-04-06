@@ -11,25 +11,10 @@ import { supabase } from '../../lib/supabase';
 import { X, Map, MapPin } from 'lucide-react';
 import MapPickerModal from '../Map/MapPickerModal';
 
-// Convierte un datetime string a formato "YYYY-MM-DDTHH:MM" para datetime-local input
-function toDateTimeLocal(val) {
-  if (!val) return '';
-  const d = new Date(val);
-  const tzOffset = d.getTimezoneOffset() * 60000;
-  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
-}
-
-// Convierte una fecha de viaje a "YYYY-MM-DDTHH:MM" para los atributos min/max
-function toMinMax(dateStr, isEnd) {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    if (isEnd) d.setHours(23, 59);
-    else d.setHours(0, 0);
-    const tzOffset = d.getTimezoneOffset() * 60000;
-    return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
-  } catch { return ''; }
-}
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabase';
+import { X, Map, MapPin } from 'lucide-react';
+import MapPickerModal from '../Map/MapPickerModal';
 
 export default function NewAccommodationModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onAccommodationAdded, editingAccommodation }) {
   const [loading, setLoading] = useState(false);
@@ -39,13 +24,29 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
   const [nameSearchTimer, setNameSearchTimer] = useState(null);
   const nameRef = useRef(null);
 
+  // -- CALCULATING TRIP DAYS --
+  const start = new Date(tripStartDate);
+  const end = new Date(tripEndDate);
+  const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  const tripDays = Array.from({ length: totalDays }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    return {
+      index: i + 1,
+      dateString: d.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' }),
+      dateObject: d
+    };
+  });
+
   const [formData, setFormData] = useState({
     type: 'hotel',
     name: '',
     cost: '',
     rating: 0,
-    check_in: '',
-    check_out: '',
+    check_in_day_index: 1,
+    check_in_time: '14:00',
+    check_out_day_index: totalDays,
+    check_out_time: '11:00',
     notes: '',
     lat: 0,
     lng: 0
@@ -53,19 +54,36 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
 
   useEffect(() => {
     if (editingAccommodation) {
+      const getDayInfo = (datetimeStr, isCheckout = false) => {
+        if (!datetimeStr) return { dayIndex: 1, timeStr: isCheckout ? '11:00' : '14:00' };
+        const dt = new Date(datetimeStr);
+        const timeStr = dt.toTimeString().slice(0, 5);
+        dt.setHours(0,0,0,0);
+        const tripStartDt = new Date(start);
+        tripStartDt.setHours(0,0,0,0);
+        const diffDays = Math.round((dt - tripStartDt) / (1000 * 60 * 60 * 24));
+        const dayIndex = Math.min(Math.max(1, diffDays + 1), totalDays);
+        return { dayIndex, timeStr };
+      };
+
+      const checkInInfo = getDayInfo(editingAccommodation.check_in, false);
+      const checkOutInfo = getDayInfo(editingAccommodation.check_out, true);
+
       setFormData({
         type: editingAccommodation.type || 'hotel',
         name: editingAccommodation.name || '',
         cost: editingAccommodation.cost || '',
         rating: editingAccommodation.rating || 0,
-        check_in: toDateTimeLocal(editingAccommodation.check_in),
-        check_out: toDateTimeLocal(editingAccommodation.check_out),
+        check_in_day_index: checkInInfo.dayIndex,
+        check_in_time: checkInInfo.timeStr,
+        check_out_day_index: checkOutInfo.dayIndex,
+        check_out_time: checkOutInfo.timeStr,
         notes: editingAccommodation.notes || '',
         lat: editingAccommodation.lat || 0,
         lng: editingAccommodation.lng || 0
       });
     } else {
-      setFormData({ type: 'hotel', name: '', cost: '', rating: 0, check_in: '', check_out: '', notes: '', lat: 0, lng: 0 });
+      setFormData({ type: 'hotel', name: '', cost: '', rating: 0, check_in_day_index: 1, check_in_time: '14:00', check_out_day_index: totalDays, check_out_time: '11:00', notes: '', lat: 0, lng: 0 });
     }
     setNameSuggestions([]);
   }, [editingAccommodation, isOpen]);
@@ -105,14 +123,26 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
     if (!formData.name) return;
     setLoading(true);
     try {
+      // Parse check-in datetime
+      const checkInDt = new Date(start);
+      checkInDt.setDate(checkInDt.getDate() + (parseInt(formData.check_in_day_index) - 1));
+      const [inH, inM] = formData.check_in_time.split(':');
+      checkInDt.setHours(parseInt(inH), parseInt(inM), 0, 0);
+
+      // Parse check-out datetime
+      const checkOutDt = new Date(start);
+      checkOutDt.setDate(checkOutDt.getDate() + (parseInt(formData.check_out_day_index) - 1));
+      const [outH, outM] = formData.check_out_time.split(':');
+      checkOutDt.setHours(parseInt(outH), parseInt(outM), 0, 0);
+
       const accommodationData = {
         trip_id: tripId,
         type: formData.type,
         name: formData.name,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         rating: parseInt(formData.rating, 10),
-        check_in: formData.check_in || null,
-        check_out: formData.check_out || null,
+        check_in: checkInDt.toISOString(),
+        check_out: checkOutDt.toISOString(),
         notes: formData.notes,
         lat: formData.lat || 0,
         lng: formData.lng || 0
@@ -143,9 +173,6 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
       setLoading(false);
     }
   };
-
-  const minDate = toMinMax(tripStartDate, false);
-  const maxDate = toMinMax(tripEndDate, true);
 
   return (
     <>
@@ -237,25 +264,50 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
             </div>
           </div>
 
-          {/* Fechas limitadas al periodo del viaje */}
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-in</label>
+          {/* Fechas limitadas al periodo del viaje usando índices de día */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Día de Check-in</label>
+              <select 
+                value={formData.check_in_day_index}
+                onChange={e => setFormData({...formData, check_in_day_index: e.target.value})}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
+              >
+                {tripDays.map(day => (
+                  <option key={`in-${day.index}`} value={day.index}>Día {day.index} - {day.dateString}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Hora Check-in</label>
               <input
-                type="datetime-local"
-                value={formData.check_in}
-                min={minDate} max={maxDate}
-                onChange={e => setFormData({...formData, check_in: e.target.value})}
+                type="time" required
+                value={formData.check_in_time}
+                onChange={e => setFormData({...formData, check_in_time: e.target.value})}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
               />
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Check-out</label>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Día de Check-out</label>
+              <select 
+                value={formData.check_out_day_index}
+                onChange={e => setFormData({...formData, check_out_day_index: e.target.value})}
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
+              >
+                {tripDays.map(day => (
+                  <option key={`out-${day.index}`} value={day.index} disabled={day.index < formData.check_in_day_index}>Día {day.index} - {day.dateString}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Hora Check-out</label>
               <input
-                type="datetime-local"
-                value={formData.check_out}
-                min={formData.check_in || minDate} max={maxDate}
-                onChange={e => setFormData({...formData, check_out: e.target.value})}
+                type="time" required
+                value={formData.check_out_time}
+                onChange={e => setFormData({...formData, check_out_time: e.target.value})}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
               />
             </div>

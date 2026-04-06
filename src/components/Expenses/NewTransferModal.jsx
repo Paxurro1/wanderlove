@@ -202,7 +202,11 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
                     if (val.length >= 3) {
                       const t = setTimeout(async () => {
                         try {
-                          const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val + ' parking')}&limit=5`);
+                          let searchTerm = val;
+                          if (!val.toLowerCase().includes('parking')) {
+                            searchTerm += ' parking';
+                          }
+                          const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTerm)}&limit=5&addressdetails=1`);
                           const data = await resp.json();
                           setParkingSuggestions(data);
                         } catch { setParkingSuggestions([]); }
