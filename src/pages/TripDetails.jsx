@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car, Globe, Lock } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car, Globe, Lock, Copy } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
@@ -21,10 +21,12 @@ import TripPhotos from '../components/Expenses/TripPhotos';
 import CityRecommendations from '../components/Recommendations/CityRecommendations';
 import ConfirmModal from '../components/Common/ConfirmModal';
 import TripReview from '../components/Expenses/TripReview';
+import TripDayOverview from '../components/Expenses/TripDayOverview';
 
 
 // Constante estática con todas las pestañas posibles y sus iconos correspondientes.
 const TABS = [
+  { id: 'overview', label: 'Resumen', icon: CalendarDays },
   { id: 'documents', label: 'Docs', icon: CalendarDays }, 
   { id: 'itinerary', label: 'Itinerario', icon: CalendarDays },
   { id: 'transports', label: 'Viaje y Logística', icon: MapIcon }, 
@@ -47,7 +49,7 @@ export default function TripDetails() {
   const [trip, setTrip] = useState(null); // Objeto con la info general del viaje (destino, portada)
   const [places, setPlaces] = useState([]); // Lugares/Actividades del itinerario
   const [participants, setParticipants] = useState([]); // Participantes del viaje
-  const [activeTab, setActiveTab] = useState('itinerary'); // Pestaña actualmente visible
+  const [activeTab, setActiveTab] = useState('overview'); // Pestaña actualmente visible (overview por defecto)
   const [loading, setLoading] = useState(true); // Controla el estado "Cargando..."
   const [isPlaceModalOpen, setIsPlaceModalOpen] = useState(false); // Pop-up de nuevo lugar
   const [editingPlace, setEditingPlace] = useState(null); // Lugar que se está editando
@@ -199,6 +201,81 @@ export default function TripDetails() {
     }
   };
 
+  /**
+   * Copia el viaje público como plantilla propia.
+   * Copia: datos del viaje + places del itinerario + docs/gastos si son públicos.
+   * NO copia: participantes, fotos.
+   */
+  const copyTripAsTemplate = async () => {
+    if (!window.confirm('Se creará una copia de este viaje en tu cuenta (sin participantes ni fotos). ¿Continuar?')) return;
+    try {
+      // 1. Crear nuevo viaje
+      const { data: newTrip, error: tripErr } = await supabase
+        .from('trips')
+        .insert([{
+          owner_id: user.id,
+          destination: trip.destination,
+          start_date: trip.start_date,
+          end_date: trip.end_date,
+          cover_image: trip.cover_image,
+          is_public: false, // Por defecto privado
+          description: trip.description
+        }])
+        .select()
+        .single();
+      if (tripErr) throw tripErr;
+
+      // 2. Copiar itinerario (places)
+      const { data: srcPlaces } = await supabase.from('places').select('*').eq('trip_id', trip.id);
+      if (srcPlaces && srcPlaces.length > 0) {
+        const newPlaces = srcPlaces.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+        await supabase.from('places').insert(newPlaces);
+      }
+
+      // 3. Copiar alojamientos (si existen)
+      const { data: srcAccoms } = await supabase.from('accommodations').select('*').eq('trip_id', trip.id);
+      if (srcAccoms && srcAccoms.length > 0) {
+        const newAccoms = srcAccoms.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+        await supabase.from('accommodations').insert(newAccoms);
+      }
+
+      // 4. Copiar transports y traslados
+      const { data: srcTransports } = await supabase.from('transports').select('*').eq('trip_id', trip.id);
+      if (srcTransports && srcTransports.length > 0) {
+        const newTransports = srcTransports.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+        await supabase.from('transports').insert(newTransports);
+      }
+      const { data: srcTransfers } = await supabase.from('airport_transfers').select('*').eq('trip_id', trip.id);
+      if (srcTransfers && srcTransfers.length > 0) {
+        const newTransfers = srcTransfers.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+        await supabase.from('airport_transfers').insert(newTransfers);
+      }
+
+      // 5. Copiar documentos SOLO si son públicos
+      if (trip.documents_public) {
+        const { data: srcDocs } = await supabase.from('documents').select('*').eq('trip_id', trip.id);
+        if (srcDocs && srcDocs.length > 0) {
+          const newDocs = srcDocs.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+          await supabase.from('documents').insert(newDocs);
+        }
+      }
+
+      // 6. Copiar gastos SOLO si son públicos
+      if (trip.expenses_public) {
+        const { data: srcExpenses } = await supabase.from('expenses').select('*').eq('trip_id', trip.id);
+        if (srcExpenses && srcExpenses.length > 0) {
+          const newExpenses = srcExpenses.map(({ id, trip_id, ...rest }) => ({ ...rest, trip_id: newTrip.id }));
+          await supabase.from('expenses').insert(newExpenses);
+        }
+      }
+
+      // Navegar al nuevo viaje
+      navigate(`/trip/${newTrip.id}`);
+    } catch (error) {
+      alert('Error al copiar el viaje: ' + error.message);
+    }
+  };
+
   // Vistas de "Cargando" o "Error" precoces. (Early returns)
   if (loading) {
     return (
@@ -220,12 +297,11 @@ export default function TripDetails() {
   // -- RENDERIZADOR MAGNÉTICO DE PESTAÑAS --
   // Esta función decide QUÉ componente inferior dibujar basado en activeTab
   const renderTabContent = () => {
-    // A los componentes "hijo" (TripDocuments, TripExpenses, etc) les 
-    // pasamos 'trip.id' como Prop (parámetro). Así ellos mismos pueden
-    // descargar (fetch) solo la parte de su tabla en Supabase.
     const hidePrices = isReadOnly && !(trip?.expenses_public);
 
     switch (activeTab) {
+      case 'overview':
+        return <TripDayOverview trip={trip} />;
       case 'documents':
         return <TripDocuments tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'transports':
@@ -625,6 +701,22 @@ export default function TripDetails() {
                 </span>
               ))}
             </div>
+          )}
+
+          {/* Copy trip button (only in read-only / public view) */}
+          {isReadOnly && (
+            <button
+              onClick={copyTripAsTemplate}
+              style={{
+                marginTop: 'var(--spacing-md)',
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: 'rgba(118,75,162,0.35)', border: '1px solid rgba(118,75,162,0.6)',
+                color: 'white', padding: '8px 16px', borderRadius: '30px',
+                cursor: 'pointer', backdropFilter: 'blur(5px)', fontSize: '0.9rem'
+              }}
+            >
+              <Copy size={16} /> Copiar como plantilla
+            </button>
           )}
 
           {/* Leave trip button (only for non-owners who ARE participants) */}

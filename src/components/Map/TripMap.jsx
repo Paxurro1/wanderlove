@@ -1,19 +1,17 @@
 // ============================================================================
 // ARCHIVO: TripMap.jsx
 // DESCRIPCIÓN: Componente de visualización de Mapa interactivo usando Leaflet.
-// Muestra los puntos de interés (markers) guardados para el viaje actual.
+// Muestra los puntos de interés (markers) guardados para el viaje actual,
+// y dibuja una línea de ruta conectando todos los puntos del itinerario.
 // ============================================================================
 
 import { useEffect, useState } from 'react';
-// Importamos componentes de react-leaflet para manejar el mapa de forma declarativa.
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css'; // Estilos obligatorios de Leaflet
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { supabase } from '../../lib/supabase';
 
 // -- CORRECCIÓN DE ICONOS DE LEAFLET --
-// Debido a un bug conocido en Webpack/Vite con Leaflet, los iconos por defecto no cargan solos.
-// Aquí los importamos y configuramos manualmente para que se vean en el mapa.
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
@@ -32,17 +30,13 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 /**
  * Componente AUXILIAR: MapBounds
- * Se encarga de re-posicionar la "cámara" del mapa automáticamente.
- * Siempre que la lista de lugares cambie (se añada o borre uno), el mapa hará
- * un zoom out/in para que todos los puntos sean visibles simultáneamente.
+ * Ajusta el "cámara" del mapa para que todos los puntos sean visibles.
  */
 function MapBounds({ places }) {
   const map = useMap();
   useEffect(() => {
     if (places.length === 0) return;
-    // Creamos un cuadro delimitador (bounds) que encierre todas las coordenadas
     const bounds = L.latLngBounds(places.map(p => [p.lat, p.lng]));
-    // Aplicamos el cambio de vista con una animación suave y margen adicional
     map.fitBounds(bounds, { padding: [50, 50] }); 
   }, [places, map]);
   return null;
@@ -62,7 +56,9 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
       const { data, error } = await supabase
         .from('places')
         .select('*')
-        .eq('trip_id', tripId);
+        .eq('trip_id', tripId)
+        .order('day_index', { ascending: true })
+        .order('order_index', { ascending: true });
       
       if (error) throw error;
       setPlaces(data || []);
@@ -72,6 +68,15 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
       setLoading(false);
     }
   };
+
+  // Puntos válidos para dibujar la ruta (excluir coords en (0,0))
+  const routePoints = places
+    .filter(p => p.lat !== 0 || p.lng !== 0)
+    .sort((a, b) => {
+      if (a.day_index !== b.day_index) return (a.day_index || 0) - (b.day_index || 0);
+      return (a.order_index || 0) - (b.order_index || 0);
+    })
+    .map(p => [p.lat, p.lng]);
 
   return (
     <div className="glass-panel" style={{ overflow: 'hidden', padding: 0 }}>
@@ -97,24 +102,39 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
           scrollWheelZoom={true} 
           style={{ height: '100%', width: '100%' }}
         >
-          {/* Capa de diseño del mapa (CartoDB Voyager: estilo claro y moderno) */}
+          {/* Capa de diseño del mapa (CartoDB Voyager) */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
             url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
           {/* Lógica de auto-enfoque */}
-          {places.length > 0 && <MapBounds places={places} />}
+          {places.length > 0 && <MapBounds places={places.filter(p => p.lat !== 0 || p.lng !== 0)} />}
+
+          {/* Línea de ruta que conecta todos los puntos del itinerario en orden */}
+          {routePoints.length > 1 && (
+            <Polyline
+              positions={routePoints}
+              pathOptions={{
+                color: '#764ba2',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '8, 6'
+              }}
+            />
+          )}
           
-          {/* Renderizado dinámico de chinchetas (Markers) y sus Popups informativos */}
+          {/* Marcadores del itinerario */}
           {places.map(place => (
             <Marker key={place.id} position={[place.lat, place.lng]}>
               <Popup>
-                {/* Contenido del Popup al hacer click o tap sobre la chincheta */}
                 <div style={{ padding: '4px', minWidth: '150px' }}>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: 'var(--color-primary)' }}>{place.name}</h4>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+                    {place.day_index && <span style={{ fontSize: '0.75rem', display: 'block', color: '#888', marginBottom: '2px' }}>Día {place.day_index}</span>}
+                    {place.name}
+                  </h4>
                   <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>{place.reason}</p>
                   
-                  {/* El estado 'visitado' puede verse y modificarse directamente desde el mapa */}
+                  {/* El estado 'visitado' puede verse y modificarse desde el mapa */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', cursor: 'pointer' }}>
                     <input 
                       type="checkbox" 
@@ -127,7 +147,7 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
                           .from('places')
                           .update({ visited: newVisited })
                           .eq('id', place.id);
-                        if (!error) fetchPlaces(); // Refrescamos el mapa tras la actualización
+                        if (!error) fetchPlaces();
                       }}
                     />
                     <span style={{ fontSize: '0.9rem' }}>{place.visited ? '¡Visitado!' : 'Marcar visitado'}</span>
@@ -141,3 +161,4 @@ export default function TripMap({ tripId, onAddPlace, isReadOnly }) {
     </div>
   );
 }
+

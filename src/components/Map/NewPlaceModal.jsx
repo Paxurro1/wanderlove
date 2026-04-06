@@ -1,17 +1,20 @@
 // ============================================================================
 // ARCHIVO: NewPlaceModal.jsx
-// DESCRIPCIÓN: Modal para añadir o editar lugares/actividades con buscador real.
+// DESCRIPCIÓN: Modal para añadir o editar lugares/actividades con buscador real
+// y selector de ubicación en mapa interactivo.
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Search, MapPin } from 'lucide-react';
+import { X, Search, MapPin, Map } from 'lucide-react';
+import MapPickerModal from './MapPickerModal';
 
 export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onPlaceAdded, editingPlace, modalTitle = 'Añadir al plan' }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -104,6 +107,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
   };
 
   return (
+    <>
     <div className="modal-overlay">
       <div className="modal-content animate-fade-in" style={{ maxWidth: '450px' }}>
         <button onClick={onClose} style={{ position: 'absolute', top: 'var(--spacing-md)', right: 'var(--spacing-md)', color: 'var(--color-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -163,9 +167,32 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
             </div>
           </div>
 
-          {/* Buscador de Lugar */}
+          {/* Buscador de Lugar + selector mapa */}
           <div style={{ position: 'relative' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Buscar Lugar</label>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setIsMapPickerOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', borderRadius: '8px',
+                  border: '1px solid var(--color-primary)',
+                  background: 'rgba(118,75,162,0.08)',
+                  color: 'var(--color-primary)',
+                  cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500,
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Map size={14} /> Elegir en el mapa
+              </button>
+              {formData.lat !== 0 && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <MapPin size={12} color="var(--color-primary)" />
+                  {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                </span>
+              )}
+            </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input 
                 type="text" 
@@ -241,5 +268,16 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         </form>
       </div>
     </div>
+
+    <MapPickerModal
+      isOpen={isMapPickerOpen}
+      onClose={() => setIsMapPickerOpen(false)}
+      onSelect={({ lat, lng, name }) => {
+        setFormData(prev => ({ ...prev, lat, lng, name: name || prev.name }));
+        setSearchQuery(name || searchQuery);
+      }}
+      title="Elegir ubicación del plan"
+    />
+    </>
   );
 }

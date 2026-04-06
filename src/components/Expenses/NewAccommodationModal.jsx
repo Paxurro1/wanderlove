@@ -1,15 +1,17 @@
 // ============================================================================
 // ARCHIVO: NewAccommodationModal.jsx
 // DESCRIPCIÓN: Formulario modal para registrar un nuevo alojamiento.
-// Permite elegir tipo (Hotel/Camper), fechas, coste y valoración.
+// Permite elegir tipo (Hotel/Camper), fechas, coste, valoración y ubicación en mapa.
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X } from 'lucide-react';
+import { X, Map, MapPin } from 'lucide-react';
+import MapPickerModal from '../Map/MapPickerModal';
 
 export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccommodationAdded, editingAccommodation }) {
   const [loading, setLoading] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   
   // -- ESTADO INICIAL DEL FORMULARIO --
   const [formData, setFormData] = useState({
@@ -19,7 +21,9 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
     rating: 0,
     check_in: '',
     check_out: '',
-    notes: ''
+    notes: '',
+    lat: 0,
+    lng: 0
   });
 
   // Efecto para cargar los datos si estamos editando.
@@ -39,10 +43,12 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
         rating: editingAccommodation.rating || 0,
         check_in: toDateTimeLocal(editingAccommodation.check_in),
         check_out: toDateTimeLocal(editingAccommodation.check_out),
-        notes: editingAccommodation.notes || ''
+        notes: editingAccommodation.notes || '',
+        lat: editingAccommodation.lat || 0,
+        lng: editingAccommodation.lng || 0
       });
     } else {
-      setFormData({ type: 'hotel', name: '', cost: '', rating: 0, check_in: '', check_out: '', notes: '' });
+      setFormData({ type: 'hotel', name: '', cost: '', rating: 0, check_in: '', check_out: '', notes: '', lat: 0, lng: 0 });
     }
   }, [editingAccommodation, isOpen]);
 
@@ -61,13 +67,13 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
         trip_id: tripId,
         type: formData.type,
         name: formData.name,
-        // Convertimos a número si hay valor, sino 0.
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         rating: parseInt(formData.rating, 10),
-        // Fechas: si están vacías mandamos null
         check_in: formData.check_in || null,
         check_out: formData.check_out || null,
-        notes: formData.notes
+        notes: formData.notes,
+        lat: formData.lat || 0,
+        lng: formData.lng || 0
       };
 
       let result;
@@ -111,7 +117,8 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
   };
 
   return (
-    // Overlay oscuro tras el modal
+    <>
+    {/* Overlay oscuro tras el modal */}
     <div className="modal-overlay">
       {/* Caja del Modal con scroll interno por si hay muchos campos */}
       <div className="modal-content animate-fade-in">
@@ -139,7 +146,7 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
             </select>
           </div>
 
-          {/* Nombre del establecimiento */}
+          {/* Nombre del establecimiento + selector de mapa */}
           <div>
             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>Nombre del lugar</label>
             <input 
@@ -149,6 +156,28 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
               placeholder="Ej. Hotel Riverside"
               style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
             />
+            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setIsMapPickerOpen(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '7px 14px', borderRadius: '8px',
+                  border: '1px solid var(--color-primary)',
+                  background: 'rgba(118,75,162,0.08)',
+                  color: 'var(--color-primary)',
+                  cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500
+                }}
+              >
+                <Map size={14} /> Ubicar en el mapa
+              </button>
+              {formData.lat !== 0 && (
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <MapPin size={12} color="var(--color-primary)" />
+                  {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Fechas y horas de estancia */}
@@ -217,5 +246,15 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, onAccom
         </form>
       </div>
     </div>
+
+    <MapPickerModal
+      isOpen={isMapPickerOpen}
+      onClose={() => setIsMapPickerOpen(false)}
+      onSelect={({ lat, lng, name }) => {
+        setFormData(prev => ({ ...prev, lat, lng }));
+      }}
+      title="Ubicación del alojamiento"
+    />
+    </>
   );
 }

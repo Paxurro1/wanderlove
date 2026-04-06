@@ -1,14 +1,16 @@
 // ============================================================================
 // ARCHIVO: NewTransferModal.jsx
-// DESCRIPCIÓN: Modal para gestionar la logística de traslados y su coste.
+// DESCRIPCIÓN: Modal para gestionar la logística de traslados, su coste y ubicación.
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Car, Bus, Train, DollarSign } from 'lucide-react';
+import { X, Car, Bus, Train, DollarSign, Map, MapPin } from 'lucide-react';
+import MapPickerModal from '../Map/MapPickerModal';
 
 export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAdded, editingTransfer }) {
   const [loading, setLoading] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     type: 'car',
@@ -16,8 +18,10 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
     parking_cost: '',
     parking_duration: '',
     transfer_duration_mins: '',
-    cost: '', // Nuevo campo de coste general para BUS/AVE
-    departure_time: ''
+    cost: '',
+    departure_time: '',
+    lat: 0,
+    lng: 0
   });
 
   useEffect(() => {
@@ -29,7 +33,9 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_duration: editingTransfer.parking_duration || '',
         transfer_duration_mins: editingTransfer.transfer_duration_mins || '',
         cost: editingTransfer.cost || '',
-        departure_time: editingTransfer.departure_time || ''
+        departure_time: editingTransfer.departure_time || '',
+        lat: editingTransfer.lat || 0,
+        lng: editingTransfer.lng || 0
       });
     } else {
       setFormData({
@@ -39,7 +45,9 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_duration: '',
         transfer_duration_mins: '',
         cost: '',
-        departure_time: ''
+        departure_time: '',
+        lat: 0,
+        lng: 0
       });
     }
   }, [editingTransfer, isOpen]);
@@ -60,7 +68,9 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
         parking_duration: formData.parking_duration || null,
         transfer_duration_mins: formData.transfer_duration_mins ? parseInt(formData.transfer_duration_mins, 10) : null,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
-        departure_time: formData.departure_time || null
+        departure_time: formData.departure_time || null,
+        lat: formData.lat || 0,
+        lng: formData.lng || 0
       };
 
       let result;
@@ -100,6 +110,7 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
   };
 
   return (
+    <>
     <div className="modal-overlay">
       <div className="modal-content animate-fade-in" style={{ maxWidth: '450px' }}>
         <button onClick={onClose} style={{ position: 'absolute', top: 'var(--spacing-md)', right: 'var(--spacing-md)', color: 'var(--color-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -212,8 +223,40 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
           <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 'var(--spacing-md)' }}>
             {loading ? 'Guardando...' : (editingTransfer ? 'Guardar Cambios' : 'Añadir Traslado')}
           </button>
+
+          {/* Selector de ubicación de inicio del traslado */}
+          <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setIsMapPickerOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '7px 14px', borderRadius: '8px',
+                border: '1px solid var(--color-border)',
+                background: 'transparent',
+                color: 'var(--color-text-muted)',
+                cursor: 'pointer', fontSize: '0.85rem'
+              }}
+            >
+              <Map size={14} /> Ubicar inicio en mapa (opcional)
+            </button>
+            {formData.lat !== 0 && (
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <MapPin size={12} color="var(--color-primary)" />
+                {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+              </span>
+            )}
+          </div>
         </form>
       </div>
     </div>
+
+    <MapPickerModal
+      isOpen={isMapPickerOpen}
+      onClose={() => setIsMapPickerOpen(false)}
+      onSelect={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
+      title="Punto de salida del traslado"
+    />
+    </>
   );
 }

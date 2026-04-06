@@ -1,7 +1,8 @@
 // ============================================================================
 // ARCHIVO: AdventuresMap.jsx
 // DESCRIPCIÓN: Pantalla de Mapa Global que muestra todas las ciudades visitadas
-// por la pareja en todos sus viajes. Utiliza Leaflet para la visualización.
+// por el usuario en todos sus viajes. Utiliza Leaflet para la visualización.
+// Solo muestra lugares de viajes propios o en los que participa el usuario.
 // ============================================================================
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthContext';
 import { ArrowLeft, Globe, MapPin } from 'lucide-react';
 
 // -- CONFIGURACIÓN DE ICONOS DE LEAFLET --
@@ -43,20 +45,46 @@ function MapBounds({ places }) {
 }
 
 export default function AdventuresMap() {
+  const { user } = useAuth();
   const [visitedPlaces, setVisitedPlaces] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Al cargar la página, traemos todos los lugares de la DB marcados como visitados.
   useEffect(() => {
-    fetchVisitedPlaces();
-  }, []);
+    if (user) fetchVisitedPlaces();
+  }, [user]);
 
   const fetchVisitedPlaces = async () => {
     try {
       setLoading(true);
       const now = new Date().toISOString();
 
-      // Obtener lugares marcados como visitados en viajes ya finalizados (end_date < hoy)
+      // 1. Obtener los IDs de viajes propios del usuario
+      const { data: ownedTrips } = await supabase
+        .from('trips')
+        .select('id')
+        .eq('owner_id', user.id);
+
+      // 2. Obtener los IDs de viajes donde el usuario es participante aceptado
+      const { data: participatedTrips } = await supabase
+        .from('trip_participants')
+        .select('trip_id')
+        .eq('user_id', user.id)
+        .eq('status', 'accepted');
+
+      // Unir todos los trip IDs en un Set (sin duplicados)
+      const myTripIds = [
+        ...new Set([
+          ...(ownedTrips || []).map(t => t.id),
+          ...(participatedTrips || []).map(p => p.trip_id)
+        ])
+      ];
+
+      if (myTripIds.length === 0) {
+        setVisitedPlaces([]);
+        return;
+      }
+
+      // 3. Obtener lugares visitados SOLO de los viajes del usuario, ya finalizados
       const { data: placesData, error: placesError } = await supabase
         .from('places')
         .select(`
@@ -64,11 +92,11 @@ export default function AdventuresMap() {
           trips (destination, start_date, end_date)
         `)
         .eq('visited', true)
-        .lt('trips.end_date', now);
+        .in('trip_id', myTripIds);
 
       if (placesError) throw placesError;
 
-      // Filtrar: coordenadas válidas Y que el viaje haya terminado (RLS join puede retornar null si no cumple)
+      // Filtrar: coordenadas válidas Y que el viaje haya terminado
       const filteredPlaces = (placesData || []).filter(
         p => p.trips && p.trips.end_date && new Date(p.trips.end_date) < new Date() && (p.lat !== 0 || p.lng !== 0)
       );
