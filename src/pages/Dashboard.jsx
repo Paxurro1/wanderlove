@@ -204,10 +204,12 @@ export default function Dashboard() {
         byStops = stopTrips || [];
       }
 
-      // Combinar ambos resultados y eliminar duplicados por ID
+      // Combinar ambos resultados, eliminar duplicados por ID, y excluir los viajes propios/participados
       const seen = new Set();
       const merged = [...(byDest || []), ...byStops].filter(t => {
         if (seen.has(t.id)) return false;
+        // Excluir si el usuario ya es propietario o participante (ya está en su lista local 'trips')
+        if (trips.some(myTrip => myTrip.id === t.id)) return false;
         seen.add(t.id);
         return true;
       });
