@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, Map, MapPin } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
+import MapPickerModal from '../Map/MapPickerModal';
 
 export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onRentalAdded, editingRental }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapPickerTarget, setMapPickerTarget] = useState('pickup'); // 'pickup' | 'return'
   
   // -- CALCULATING TRIP DAYS --
   const start = new Date(tripStartDate);
@@ -31,6 +34,10 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
     return_time: '10:00',
     pickup_location: '',
     return_location: '',
+    pickup_lat: 0,
+    pickup_lng: 0,
+    return_lat: 0,
+    return_lng: 0,
     price: '',
     insurance_type: 'básico',
     car_model: '',
@@ -68,6 +75,10 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
         return_time: returnInfo.timeStr,
         pickup_location: editingRental.pickup_location || '',
         return_location: editingRental.return_location || '',
+        pickup_lat: editingRental.pickup_lat || 0,
+        pickup_lng: editingRental.pickup_lng || 0,
+        return_lat: editingRental.return_lat || 0,
+        return_lng: editingRental.return_lng || 0,
         price: editingRental.price || '',
         insurance_type: editingRental.insurance_type || 'básico',
         car_model: editingRental.car_model || '',
@@ -81,6 +92,8 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
         return_time: '18:00',
         pickup_location: '',
         return_location: '',
+        pickup_lat: 0, pickup_lng: 0,
+        return_lat: 0, return_lng: 0,
         price: '',
         insurance_type: 'básico',
         car_model: '',
@@ -266,6 +279,19 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
                 onChange={e => setFormData({...formData, pickup_location: e.target.value})}
                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
               />
+              <button
+                type="button"
+                onClick={() => { setMapPickerTarget('pickup'); setIsMapPickerOpen(true); }}
+                style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-primary)', background: 'rgba(118,75,162,0.08)', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                <Map size={12} /> Ubicar en el mapa
+              </button>
+              {formData.pickup_lat !== 0 && (
+                <span style={{ marginLeft: '8px', fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <MapPin size={10} color="var(--color-primary)" />
+                  {formData.pickup_lat.toFixed(4)}, {formData.pickup_lng.toFixed(4)}
+                </span>
+              )}
           </div>
 
           <div>
@@ -276,6 +302,19 @@ export default function NewRentalModal({ isOpen, onClose, tripId, tripStartDate,
                 onChange={e => setFormData({...formData, return_location: e.target.value})}
                 style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
               />
+              <button
+                type="button"
+                onClick={() => { setMapPickerTarget('return'); setIsMapPickerOpen(true); }}
+                style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-primary)', background: 'rgba(118,75,162,0.08)', color: 'var(--color-primary)', cursor: 'pointer', fontSize: '0.8rem' }}
+              >
+                <Map size={12} /> Ubicar en el mapa
+              </button>
+              {formData.return_lat !== 0 && (
+                <span style={{ marginLeft: '8px', fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <MapPin size={10} color="var(--color-primary)" />
+                  {formData.return_lat.toFixed(4)}, {formData.return_lng.toFixed(4)}
+                </span>
+              )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

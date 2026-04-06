@@ -218,8 +218,7 @@ export default function TripDetails() {
           start_date: trip.start_date,
           end_date: trip.end_date,
           cover_image: trip.cover_image,
-          is_public: false, // Por defecto privado
-          description: trip.description
+          is_public: false // Por defecto privado
         }])
         .select()
         .single();
@@ -307,7 +306,7 @@ export default function TripDetails() {
       case 'transports':
         return <TripTransports tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'accommodations':
-        return <TripAccommodations tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
+        return <TripAccommodations tripId={trip.id} tripStartDate={trip.start_date} tripEndDate={trip.end_date} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'rentals':
         return <TripRentals tripId={trip.id} trip={trip} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'map':
@@ -703,8 +702,8 @@ export default function TripDetails() {
             </div>
           )}
 
-          {/* Copy trip button (only in read-only / public view) */}
-          {isReadOnly && (
+          {/* Copy trip button: visible on any public trip not owned by the current user */}
+          {trip.is_public && trip.owner_id !== user?.id && (
             <button
               onClick={copyTripAsTemplate}
               style={{

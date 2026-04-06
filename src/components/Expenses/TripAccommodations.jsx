@@ -30,7 +30,7 @@ const getLabelForType = (type) => {
   }
 };
 
-export default function TripAccommodations({ tripId, isReadOnly, hidePrices }) {
+export default function TripAccommodations({ tripId, tripStartDate, tripEndDate, isReadOnly, hidePrices }) {
   // -- ESTADOS LOCALES --
   const [accommodations, setAccommodations] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -241,6 +241,8 @@ export default function TripAccommodations({ tripId, isReadOnly, hidePrices }) {
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         tripId={tripId}
+        tripStartDate={tripStartDate}
+        tripEndDate={tripEndDate}
         onAccommodationAdded={handleAccommodationAdded}
         editingAccommodation={editingAccommodation}
       />

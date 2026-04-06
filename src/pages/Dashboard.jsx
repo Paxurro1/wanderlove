@@ -182,6 +182,7 @@ export default function Dashboard() {
         .from('trips')
         .select('*')
         .eq('is_public', true)
+        .neq('owner_id', user.id)
         .ilike('destination', `%${q}%`);
 
       // 2. Buscamos por paradas intermedias (ej: "Big Ben")
@@ -198,6 +199,7 @@ export default function Dashboard() {
           .from('trips')
           .select('*')
           .eq('is_public', true)
+          .neq('owner_id', user.id)
           .in('id', placesTripIds);
         byStops = stopTrips || [];
       }

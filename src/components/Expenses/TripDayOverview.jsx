@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Bed, Plane, Car, MapPin, Clock, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, LogIn, LogOut } from 'lucide-react';
+import { Bed, Plane, Car, MapPin, Clock, AlertTriangle, ChevronDown, ChevronUp, CheckCircle, LogIn, LogOut, Key } from 'lucide-react';
 
 // ── Auxiliares de formato ──────────────────────────────────────────────────
 const fmtTime = (dateStr) => {
@@ -47,6 +47,7 @@ export default function TripDayOverview({ trip }) {
   const [accommodations, setAccommodations] = useState([]);
   const [transports, setTransports] = useState([]);
   const [transfers, setTransfers] = useState([]);
+  const [rentals, setRentals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState({});
 
@@ -57,16 +58,18 @@ export default function TripDayOverview({ trip }) {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      const [placesRes, accomsRes, transRes, transfersRes] = await Promise.all([
+      const [placesRes, accomsRes, transRes, transfersRes, rentalsRes] = await Promise.all([
         supabase.from('places').select('*').eq('trip_id', trip.id).order('day_index').order('order_index'),
         supabase.from('accommodations').select('*').eq('trip_id', trip.id).order('check_in'),
         supabase.from('transports').select('*').eq('trip_id', trip.id).order('departure_time'),
-        supabase.from('airport_transfers').select('*').eq('trip_id', trip.id).order('departure_time')
+        supabase.from('airport_transfers').select('*').eq('trip_id', trip.id).order('departure_time'),
+        supabase.from('trip_rentals').select('*').eq('trip_id', trip.id).order('pickup_datetime')
       ]);
       setPlaces(placesRes.data || []);
       setAccommodations(accomsRes.data || []);
       setTransports(transRes.data || []);
       setTransfers(transfersRes.data || []);
+      setRentals(rentalsRes.data || []);
     } catch (err) {
       console.error('Error cargando resumen del viaje:', err);
     } finally {
@@ -174,6 +177,18 @@ export default function TripDayOverview({ trip }) {
         const prevDayArrivals = getArrivalsFromPrevDay(date);
         const dayTransfers = dayIndex === 1 ? transfers : [];
 
+        // Alquileres activos este día (en periodo de alquiler)
+        const dayRentals = rentals.filter(r => {
+          if (!r.pickup_datetime) return false;
+          const pickupDate = new Date(r.pickup_datetime);
+          const returnDate = r.return_datetime ? new Date(r.return_datetime) : null;
+          const dayStart = new Date(date); dayStart.setHours(0,0,0,0);
+          const dayEnd = new Date(date); dayEnd.setHours(23,59,59,999);
+          return pickupDate <= dayEnd && (!returnDate || returnDate >= dayStart);
+        });
+
+        const hasContent = dayActivities.length > 0 || activeAccom || checkOutAccom || dayFlights.length > 0 || prevDayArrivals.length > 0 || dayTransfers.length > 0 || dayRentals.length > 0;
+
         // Detección de conflictos de horario
         const conflicts = [];
         for (let i = 0; i < dayActivities.length - 1; i++) {
@@ -184,7 +199,6 @@ export default function TripDayOverview({ trip }) {
           }
         }
 
-        const hasContent = dayActivities.length > 0 || activeAccom || checkOutAccom || dayFlights.length > 0 || prevDayArrivals.length > 0 || dayTransfers.length > 0;
         const isExpanded = expandedDays[dayIndex] !== false; // Expandido por defecto
 
         return (
@@ -220,6 +234,7 @@ export default function TripDayOverview({ trip }) {
                     {dayActivities.length > 0 && <span>📍 {dayActivities.length} {dayActivities.length === 1 ? 'actividad' : 'actividades'}</span>}
                     {(activeAccom || checkOutAccom) && <span>🏨 {activeAccom?.name || checkOutAccom?.name}</span>}
                     {dayFlights.length > 0 && <span>✈️ {dayFlights.length} {dayFlights.length === 1 ? 'vuelo' : 'vuelos'}</span>}
+                    {dayRentals.length > 0 && <span>🚗 Alquiler: {dayRentals[0].car_model}</span>}
                     {conflicts.length > 0 && <span style={{ color: '#e67e22' }}>⚠️ Conflicto de horario</span>}
                   </div>
                 </div>
@@ -370,6 +385,35 @@ export default function TripDayOverview({ trip }) {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ── ALQUILERES DE COCHE ── */}
+                {dayRentals.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#27ae60', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '8px' }}>
+                      ALQUILER DE COCHE
+                    </div>
+                    {dayRentals.map(r => {
+                      const isPickupDay = new Date(r.pickup_datetime).toISOString().split('T')[0] === date.toISOString().split('T')[0];
+                      const isReturnDay = r.return_datetime && new Date(r.return_datetime).toISOString().split('T')[0] === date.toISOString().split('T')[0];
+                      return (
+                        <div key={r.id} style={{ background: 'rgba(46,204,113,0.08)', borderRadius: '8px', padding: '10px 14px', marginBottom: '6px', border: '1px solid rgba(46,204,113,0.2)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                          <Key size={16} color="#27ae60" style={{ marginTop: '2px', flexShrink: 0 }} />
+                          <div>
+                            <div style={{ fontWeight: 600 }}>
+                              {r.car_model}
+                              {isPickupDay && <span style={{ marginLeft: '8px', fontSize: '0.75rem', background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>Recogida</span>}
+                              {isReturnDay && !isPickupDay && <span style={{ marginLeft: '8px', fontSize: '0.75rem', background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>Devolución</span>}
+                            </div>
+                            {isPickupDay && r.pickup_location && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>📍 Recogida: {r.pickup_location} · {fmtTime(r.pickup_datetime)}</div>}
+                            {isReturnDay && r.return_location && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>📍 Devolución: {r.return_location} · {fmtTime(r.return_datetime)}</div>}
+                            {!isPickupDay && !isReturnDay && <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>🚗 En uso hasta el {fmtDate(r.return_datetime)}</div>}
+                            <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Seguro: {r.insurance_type || 'básico'}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
