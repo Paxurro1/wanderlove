@@ -19,7 +19,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
   const [formData, setFormData] = useState({
     name: '',
     reason: '',
-    day_index: 1,
+    day_indices: [1],
     lat: 0,
     lng: 0,
     activity_time: ''
@@ -30,14 +30,14 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
       setFormData({
         name: editingPlace.name || '',
         reason: editingPlace.reason || '',
-        day_index: editingPlace.day_index || 1,
+        day_indices: [editingPlace.day_index || 1],
         lat: editingPlace.lat || 0,
         lng: editingPlace.lng || 0,
         activity_time: editingPlace.activity_time || ''
       });
       setSearchQuery(editingPlace.name || '');
     } else {
-      setFormData({ name: '', reason: '', day_index: 1, lat: 0, lng: 0, activity_time: '' });
+      setFormData({ name: '', reason: '', day_indices: [1], lat: 0, lng: 0, activity_time: '' });
       setSearchQuery('');
       setSearchResults([]);
     }
@@ -74,30 +74,62 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name) return;
+    if (!formData.day_indices || formData.day_indices.length === 0) {
+      alert('Por favor, selecciona al menos un día.');
+      return;
+    }
     
     setLoading(true);
 
     try {
-      const placeData = {
-        trip_id: tripId,
-        name: formData.name,
-        reason: formData.reason,
-        day_index: parseInt(formData.day_index, 10),
-        lat: formData.lat,
-        lng: formData.lng,
-        visited: editingPlace ? editingPlace.visited : false,
-        activity_time: formData.activity_time || null
-      };
-
-      let result;
       if (editingPlace) {
-        result = await supabase.from('places').update(placeData).eq('id', editingPlace.id).select();
+        // En edición, actualizamos el primer día del array (para mantener el ID original)
+        // y si el usuario eligió más días, creamos duplicados para los extra.
+        const primaryDay = formData.day_indices[0];
+
+        const placeData = {
+          trip_id: tripId,
+          name: formData.name,
+          reason: formData.reason,
+          day_index: primaryDay,
+          lat: formData.lat,
+          lng: formData.lng,
+          visited: editingPlace.visited,
+          activity_time: formData.activity_time || null
+        };
+
+        const result = await supabase.from('places').update(placeData).eq('id', editingPlace.id).select();
+        if (result.error) throw result.error;
+
+        // Insertar para el resto de días seleccionados (si los hay)
+        if (formData.day_indices.length > 1) {
+          const extraPlaces = formData.day_indices.slice(1).map(dayIdx => ({
+            ...placeData,
+            day_index: dayIdx,
+            visited: false
+          }));
+          await supabase.from('places').insert(extraPlaces);
+        }
+
+        onPlaceAdded(result.data[0]);
       } else {
-        result = await supabase.from('places').insert([placeData]).select();
+        // En modo creación, insertamos un registro por cada día seleccionado
+        const placesToInsert = formData.day_indices.map(dayIdx => ({
+          trip_id: tripId,
+          name: formData.name,
+          reason: formData.reason,
+          day_index: dayIdx,
+          lat: formData.lat,
+          lng: formData.lng,
+          visited: false,
+          activity_time: formData.activity_time || null
+        }));
+
+        const result = await supabase.from('places').insert(placesToInsert).select();
+        if (result.error) throw result.error;
+        onPlaceAdded(result.data[0]); // Para refrescar
       }
 
-      if (result.error) throw result.error;
-      onPlaceAdded(result.data[0]);
       onClose();
     } catch (error) {
       alert('Error al procesar el lugar: ' + error.message);
@@ -120,49 +152,68 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
           {/* Selector de día con fechas reales y Hora */}
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Día del viaje:</label>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Día(s) del viaje:</label>
               {tripStartDate && tripEndDate ? (() => {
                 const start = new Date(tripStartDate);
                 const end = new Date(tripEndDate);
                 const diffMs = end - start;
                 const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
                 return (
-                  <select
-                    value={formData.day_index}
-                    onChange={e => setFormData({...formData, day_index: parseInt(e.target.value)})}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', cursor: 'pointer', width: '100%' }}
-                  >
+                  <div style={{ 
+                    maxHeight: '140px', overflowY: 'auto', 
+                    padding: '8px', borderRadius: '8px', 
+                    border: '1px solid var(--color-border)', 
+                    background: 'var(--color-bg)',
+                    display: 'flex', flexDirection: 'column', gap: '6px'
+                  }}>
                     {Array.from({ length: totalDays }, (_, i) => {
                       const dayDate = new Date(start);
                       dayDate.setDate(start.getDate() + i);
                       const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+                      const idx = i + 1;
+                      const isChecked = formData.day_indices.includes(idx);
+                      
                       return (
-                        <option key={i + 1} value={i + 1}>
-                          Día {i + 1} – {label}
-                        </option>
+                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: isChecked ? 'var(--color-primary)' : 'var(--color-text-main)', fontWeight: isChecked ? 600 : 400 }}>
+                          <input 
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({...formData, day_indices: [...formData.day_indices, idx]});
+                              } else {
+                                // No permitir quedarse sin días
+                                if (formData.day_indices.length > 1) {
+                                  setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
+                                }
+                              }
+                            }}
+                          />
+                          Día {idx} – {label}
+                        </label>
                       );
                     })}
-                  </select>
+                  </div>
                 );
               })() : (
                 <input
                   type="number" min="1" required
-                  value={formData.day_index}
-                  onChange={e => setFormData({...formData, day_index: e.target.value})}
+                  value={formData.day_indices[0] || 1}
+                  onChange={e => setFormData({...formData, day_indices: [parseInt(e.target.value)]})}
                   style={{ width: '70px', padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', textAlign: 'center' }}
                 />
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '120px' }}>
               <label style={{ fontWeight: 500 }}>Hora:</label>
               <input
                 type="time"
                 value={formData.activity_time}
                 onChange={e => setFormData({...formData, activity_time: e.target.value})}
-                style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
+                style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)' }}
               />
             </div>
           </div>
