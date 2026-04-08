@@ -11,10 +11,7 @@ import { supabase } from '../../lib/supabase';
 import { X, Map, MapPin } from 'lucide-react';
 import MapPickerModal from '../Map/MapPickerModal';
 
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../lib/supabase';
-import { X, Map, MapPin } from 'lucide-react';
-import MapPickerModal from '../Map/MapPickerModal';
+
 
 export default function NewAccommodationModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onAccommodationAdded, editingAccommodation }) {
   const [loading, setLoading] = useState(false);
@@ -256,9 +253,9 @@ export default function NewAccommodationModal({ isOpen, onClose, tripId, tripSta
                 <Map size={14} /> Ubicar en el mapa
               </button>
               {formData.lat !== 0 && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
                   <MapPin size={12} color="var(--color-primary)" />
-                  {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                  {formData.name || `${formData.lat.toFixed(4)}, ${formData.lng.toFixed(4)}`}
                 </span>
               )}
             </div>

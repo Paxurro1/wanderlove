@@ -227,9 +227,9 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
                   <Map size={12} /> Ubicar en mapa
                 </button>
                 {formData.lat !== 0 && (
-                  <span style={{ marginLeft: '8px', fontSize: '0.78rem', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                  <span style={{ marginLeft: '8px', fontSize: '0.78rem', color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 500 }}>
                     <MapPin size={10} color="var(--color-primary)" />
-                    {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                    {formData.parking_name || `${formData.lat.toFixed(4)}, ${formData.lng.toFixed(4)}`}
                   </span>
                 )}
                 {/* Dropdown de sugerencias de parking */}
@@ -310,7 +310,12 @@ export default function NewTransferModal({ isOpen, onClose, tripId, onTransferAd
     <MapPickerModal
       isOpen={isMapPickerOpen}
       onClose={() => setIsMapPickerOpen(false)}
-      onSelect={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
+      onSelect={({ lat, lng, name }) => setFormData(prev => ({
+        ...prev,
+        lat,
+        lng,
+        parking_name: name || prev.parking_name
+      }))}
       title="Punto de salida del traslado"
     />
     </>

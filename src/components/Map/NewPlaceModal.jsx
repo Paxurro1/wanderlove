@@ -154,7 +154,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           {/* Selector de día con fechas reales y Hora */}
           <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Día(s) del viaje:</label>
+              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Días del plan <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem' }}>(puedes elegir varios)</span></label>
               {tripStartDate && tripEndDate ? (() => {
                 const start = new Date(tripStartDate);
                 const end = new Date(tripEndDate);
@@ -162,7 +162,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
                 const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
                 return (
                   <div style={{ 
-                    maxHeight: '140px', overflowY: 'auto', 
+                    maxHeight: '180px', overflowY: 'auto', 
                     padding: '8px', borderRadius: '8px', 
                     border: '1px solid var(--color-border)', 
                     background: 'var(--color-bg)',
@@ -238,9 +238,9 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
                 <Map size={14} /> Elegir en el mapa
               </button>
               {formData.lat !== 0 && (
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
                   <MapPin size={12} color="var(--color-primary)" />
-                  {formData.lat.toFixed(4)}, {formData.lng.toFixed(4)}
+                  {formData.name || `${formData.lat.toFixed(4)}, ${formData.lng.toFixed(4)}`}
                 </span>
               )}
             </div>
