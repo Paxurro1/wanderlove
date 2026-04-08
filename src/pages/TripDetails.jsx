@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
-import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car, Globe, Lock, Copy } from 'lucide-react';
+import { ArrowLeft, Map as MapIcon, DollarSign, Camera, Star, CalendarDays, Pencil, Trash2, X, Users, LogOut, ChevronUp, ChevronDown, Car, Globe, Lock, Copy, MapPin } from 'lucide-react';
 import NewPlaceModal from '../components/Map/NewPlaceModal';
 import TripMap from '../components/Map/TripMap';
 import TripExpenses from '../components/Expenses/TripExpenses';
@@ -28,7 +28,8 @@ import TripDayOverview from '../components/Expenses/TripDayOverview';
 const TABS = [
   { id: 'overview', label: 'Resumen', icon: CalendarDays },
   { id: 'documents', label: 'Docs', icon: CalendarDays }, 
-  { id: 'itinerary', label: 'Itinerario', icon: CalendarDays },
+  { id: 'destinations', label: 'Ruta / Ciudades', icon: MapPin },
+  { id: 'itinerary', label: 'Actividades diarias', icon: CalendarDays },
   { id: 'transports', label: 'Viaje y Logística', icon: MapIcon }, 
   { id: 'accommodations', label: 'Alojamientos', icon: CalendarDays },
   { id: 'rentals', label: 'Alquileres', icon: Car },
@@ -305,7 +306,7 @@ export default function TripDetails() {
       case 'documents':
         return <TripDocuments tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'transports':
-        return <TripTransports tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
+        return <TripTransports tripId={trip.id} isReadOnly={isReadOnly} hidePrices={hidePrices} tripStartDate={trip.start_date} tripEndDate={trip.end_date} />;
       case 'accommodations':
         return <TripAccommodations tripId={trip.id} tripStartDate={trip.start_date} tripEndDate={trip.end_date} isReadOnly={isReadOnly} hidePrices={hidePrices} />;
       case 'rentals':
@@ -318,10 +319,74 @@ export default function TripDetails() {
         }} />;
       case 'expenses':
         return <TripExpenses tripId={trip.id} isReadOnly={isReadOnly} />;
+      case 'destinations': {
+        const destinationPlaces = places.filter(p => !p.day_index || p.day_index === 0);
+        return (
+          <div className="glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xl)' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}><MapPin size={24} color="var(--color-primary)" /> Ruta y Destinos a Visitar</h3>
+              {!isReadOnly && (
+                <button 
+                  className="btn-primary" 
+                  onClick={() => {
+                    setModalTitle('Añadir Destino');
+                    setEditingPlace(null);
+                    setIsPlaceModalOpen('destinations');
+                  }}
+                  style={{ padding: 'var(--spacing-sm) var(--spacing-md)', fontSize: '0.9rem' }}
+                >
+                  + Añadir Destino
+                </button>
+              )}
+            </div>
+            
+            {destinationPlaces.length === 0 ? (
+              <p style={{ color: 'var(--color-text-muted)' }}>No has añadido lugares a tu ruta libre.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                {destinationPlaces.map((place) => (
+                  <div key={place.id} style={{ background: 'var(--color-surface)', padding: 'var(--spacing-md)', borderRadius: 'var(--border-radius)', border: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <MapPin size={16} color="var(--color-primary)" />
+                        {place.name}
+                      </div>
+                      {place.reason && <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{place.reason}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      {!isReadOnly && (
+                        <>
+                          <button onClick={() => { setEditingPlace(place); setIsPlaceModalOpen('destinations'); }} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '4px' }}><Pencil size={16} /></button>
+                          <button onClick={() => handleDeletePlace(place.id, place.name)} style={{ background: 'transparent', border: 'none', color: 'rgba(231, 76, 60, 0.6)', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
+                          <button 
+                            onClick={async () => {
+                              const newVisited = !place.visited;
+                              const { error } = await supabase.from('places').update({ visited: newVisited }).eq('id', place.id);
+                              if (!error) fetchTripAndData();
+                            }}
+                            style={{ 
+                              background: place.visited ? 'var(--color-success)' : 'transparent',
+                              color: place.visited ? 'white' : 'var(--color-text-muted)',
+                              border: `1px solid ${place.visited ? 'var(--color-success)' : 'var(--color-border)'}`,
+                              padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem',
+                              cursor: 'pointer', transition: 'all 0.2s', fontWeight: 600
+                            }}
+                          >
+                            {place.visited ? 'Visitado ✓' : 'Marcar visitado'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
       case 'itinerary': {
-        // En el caso del Itinerario, lo renderizamos de forma nativa aquí en lugar de un hijo externo
-        // 1. Agrupar los lugares por su 'Día' (.day_index).
-        const placesGrouped = places.reduce((acc, place) => {
+        const itineraryPlaces = places.filter(p => p.day_index && p.day_index > 0);
+        const placesGrouped = itineraryPlaces.reduce((acc, place) => {
           const day = place.day_index || 1;
           if (!acc[day]) acc[day] = [];
           acc[day].push(place);
@@ -784,7 +849,7 @@ export default function TripDetails() {
       
       {!isReadOnly && (
         <NewPlaceModal 
-          isOpen={isPlaceModalOpen} 
+          isOpen={!!isPlaceModalOpen} 
           onClose={() => setIsPlaceModalOpen(false)} 
           tripId={trip.id}
           tripStartDate={trip.start_date}
@@ -792,6 +857,7 @@ export default function TripDetails() {
           onPlaceAdded={handlePlaceAdded}
           editingPlace={editingPlace}
           modalTitle={modalTitle}
+          isDestination={isPlaceModalOpen === 'destinations'}
         />
       )}
 

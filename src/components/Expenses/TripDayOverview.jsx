@@ -326,9 +326,14 @@ export default function TripDayOverview({ trip }) {
                             <div style={{ fontWeight: 700, fontSize: '1rem' }}>{t.origin} → {t.destination}</div>
                             <div style={{ display: 'flex', gap: '16px', marginTop: '4px', fontSize: '0.875rem', color: 'var(--color-text-muted)', flexWrap: 'wrap' }}>
                               {t.departure_time && <span>🛫 Salida: <strong>{fmtTime(t.departure_time)}</strong></span>}
-                              {t.arrival_time && <span>🛬 Llegada: <strong>{fmtTime(t.arrival_time)}</strong></span>}
+                              {t.arrival_time && <span>🛬 Llegada: <strong style={new Date(t.departure_time).toLocaleDateString() !== new Date(t.arrival_time).toLocaleDateString() ? { color: '#e67e22' } : {}}>{new Date(t.departure_time).toLocaleDateString() !== new Date(t.arrival_time).toLocaleDateString() ? `${new Date(t.arrival_time).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })} ${fmtTime(t.arrival_time)}` : fmtTime(t.arrival_time)}</strong></span>}
                               {t.notes && <span>📝 {t.notes}</span>}
                             </div>
+                            {t.has_layover && (
+                              <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(230, 126, 34, 0.1)', color: '#e67e22', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(230, 126, 34, 0.2)' }}>
+                                <span>⚠️ Escala en {t.layover_location} ({t.layover_duration})</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );

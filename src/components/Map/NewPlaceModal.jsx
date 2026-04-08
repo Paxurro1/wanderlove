@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { X, Search, MapPin, Map } from 'lucide-react';
 import MapPickerModal from './MapPickerModal';
 
-export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onPlaceAdded, editingPlace, modalTitle = 'Añadir al plan' }) {
+export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, tripEndDate, onPlaceAdded, editingPlace, modalTitle = 'Añadir al plan', isDestination = false }) {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -74,7 +74,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name) return;
-    if (!formData.day_indices || formData.day_indices.length === 0) {
+    if (!isDestination && (!formData.day_indices || formData.day_indices.length === 0)) {
       alert('Por favor, selecciona al menos un día.');
       return;
     }
@@ -82,10 +82,10 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
     setLoading(true);
 
     try {
+      const activeIndices = isDestination ? [0] : formData.day_indices;
+
       if (editingPlace) {
-        // En edición, actualizamos el primer día del array (para mantener el ID original)
-        // y si el usuario eligió más días, creamos duplicados para los extra.
-        const primaryDay = formData.day_indices[0];
+        const primaryDay = activeIndices[0];
 
         const placeData = {
           trip_id: tripId,
@@ -95,18 +95,19 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           lat: formData.lat,
           lng: formData.lng,
           visited: editingPlace.visited,
-          activity_time: formData.activity_time || null
+          activity_time: isDestination ? null : (formData.activity_time || null)
         };
 
         const result = await supabase.from('places').update(placeData).eq('id', editingPlace.id).select();
         if (result.error) throw result.error;
 
         // Insertar para el resto de días seleccionados (si los hay)
-        if (formData.day_indices.length > 1) {
-          const extraPlaces = formData.day_indices.slice(1).map(dayIdx => ({
+        if (activeIndices.length > 1) {
+          const extraPlaces = activeIndices.slice(1).map(dayIdx => ({
             ...placeData,
             day_index: dayIdx,
-            visited: false
+            visited: false,
+            activity_time: null // Fijar a nulo para los subsiguientes días
           }));
           await supabase.from('places').insert(extraPlaces);
         }
@@ -114,7 +115,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         onPlaceAdded(result.data[0]);
       } else {
         // En modo creación, insertamos un registro por cada día seleccionado
-        const placesToInsert = formData.day_indices.map(dayIdx => ({
+        const placesToInsert = activeIndices.map((dayIdx, index) => ({
           trip_id: tripId,
           name: formData.name,
           reason: formData.reason,
@@ -122,7 +123,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           lat: formData.lat,
           lng: formData.lng,
           visited: false,
-          activity_time: formData.activity_time || null
+          activity_time: (isDestination || index > 0) ? null : (formData.activity_time || null)
         }));
 
         const result = await supabase.from('places').insert(placesToInsert).select();
@@ -152,7 +153,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
           {/* Selector de día con fechas reales y Hora */}
-          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+          {!isDestination && (
+            <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
               <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Días del plan <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem' }}>(puedes elegir varios)</span></label>
               {tripStartDate && tripEndDate ? (() => {
@@ -217,6 +219,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
               />
             </div>
           </div>
+          )}
 
           {/* Buscador de Lugar + selector mapa */}
           <div style={{ position: 'relative' }}>

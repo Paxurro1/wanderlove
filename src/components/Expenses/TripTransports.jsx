@@ -10,7 +10,7 @@ import NewTransportModal from './NewTransportModal';
 import NewTransferModal from './NewTransferModal';
 import ConfirmModal from '../Common/ConfirmModal';
 
-export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
+export default function TripTransports({ tripId, isReadOnly, hidePrices, tripStartDate, tripEndDate }) {
   const [transports, setTransports] = useState([]);
   const [transfers, setTransfers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,6 +56,20 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
       if (isNaN(d.getTime())) return '--:--';
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch { return '--:--'; }
+  };
+
+  const formatArrivalText = (depStr, arrStr) => {
+    if (!depStr || !arrStr) return safeFormatTime(arrStr);
+    try {
+      const dDep = new Date(depStr);
+      const dArr = new Date(arrStr);
+      // Si la fecha (Día, Mes, Año) es distinta, mostramos Fecha + Hora
+      if (dDep.toLocaleDateString() !== dArr.toLocaleDateString()) {
+        const arrDate = dArr.toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' });
+        return `Llegada ${arrDate}, ${safeFormatTime(arrStr)}`;
+      }
+      return safeFormatTime(arrStr);
+    } catch { return safeFormatTime(arrStr); }
   };
 
   const executeDelete = async () => {
@@ -132,11 +146,23 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
           )}
         </div>
         {transports.length === 0 ? <p>No hay trayectos.</p> : transports.map(t => (
-          <div key={t.id} style={{ background: 'var(--color-surface)', padding: '16px', borderRadius: '8px', marginBottom: '12px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div key={t.id} style={{ background: 'var(--color-surface)', padding: '16px', borderRadius: '8px', marginBottom: '12px', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
              <Plane size={20} color="var(--color-primary)" />
-             <div style={{ flex: 1 }}>
+             <div style={{ flex: 1, minWidth: '200px' }}>
                <div style={{ fontWeight: 600 }}>{t.origin} → {t.destination}</div>
-               <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{safeFormatTime(t.departure_time)} - {safeFormatTime(t.arrival_time)}</div>
+               <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                  Salida: <strong>{new Date(t.departure_time).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} {safeFormatTime(t.departure_time)}</strong>
+                  {' '}—{' '}
+                  <span style={ new Date(t.departure_time).toLocaleDateString() !== new Date(t.arrival_time).toLocaleDateString() ? { color: '#e67e22', fontWeight: 600 } : {} }>
+                     {formatArrivalText(t.departure_time, t.arrival_time)}
+                  </span>
+               </div>
+               
+               {t.has_layover && (
+                 <div style={{ marginTop: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(230, 126, 34, 0.1)', color: '#e67e22', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600, border: '1px solid rgba(230, 126, 34, 0.2)' }}>
+                    <span>⚠️ Escala en {t.layover_location} ({t.layover_duration})</span>
+                 </div>
+               )}
              </div>
              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 {t.cost > 0 && !hidePrices && (
@@ -155,7 +181,15 @@ export default function TripTransports({ tripId, isReadOnly, hidePrices }) {
         ))}
       </div>
 
-      <NewTransportModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} tripId={tripId} onTransportAdded={fetchTransports} editingTransport={editingTransport} />
+      <NewTransportModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        tripId={tripId} 
+        onTransportAdded={fetchTransports} 
+        editingTransport={editingTransport} 
+        tripStartDate={tripStartDate}
+        tripEndDate={tripEndDate}
+      />
       <NewTransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} tripId={tripId} onTransferAdded={fetchTransports} editingTransfer={editingTransfer} />
       <ConfirmModal isOpen={confirmModal.isOpen} onClose={() => setConfirmModal({...confirmModal, isOpen: false})} onConfirm={executeDelete} title={confirmModal.title} message={`¿Borrar ${confirmModal.name}?`} />
     </div>
