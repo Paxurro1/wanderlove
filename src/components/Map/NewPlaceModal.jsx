@@ -82,7 +82,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
     setLoading(true);
 
     try {
-      const activeIndices = isDestination ? [0] : formData.day_indices;
+      const activeIndices = formData.day_indices;
 
       if (editingPlace) {
         const primaryDay = activeIndices[0];
@@ -167,6 +167,26 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
                 const end = new Date(tripEndDate);
                 const diffMs = end - start;
                 const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
+                if (isDestination) {
+                  return (
+                    <select
+                      value={formData.day_indices[0] || 1}
+                      onChange={(e) => setFormData({...formData, day_indices: [parseInt(e.target.value)]})}
+                      style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', width: '100%', cursor: 'pointer' }}
+                    >
+                      {Array.from({ length: totalDays }, (_, i) => {
+                        const dayDate = new Date(start);
+                        dayDate.setDate(start.getDate() + i);
+                        const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+                        const idx = i + 1;
+                        return (
+                          <option key={idx} value={idx}>Día {idx} – {label}</option>
+                        );
+                      })}
+                    </select>
+                  );
+                }
+
                 return (
                   <div style={{ 
                     maxHeight: '180px', overflowY: 'auto', 
@@ -185,20 +205,15 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
                       return (
                         <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: isChecked ? 'var(--color-primary)' : 'var(--color-text-main)', fontWeight: isChecked ? 600 : 400 }}>
                           <input 
-                            type={isDestination ? "radio" : "checkbox"}
-                            name={isDestination ? "day_selection" : undefined}
+                            type="checkbox"
                             checked={isChecked}
                             onChange={(e) => {
-                              if (isDestination) {
-                                setFormData({...formData, day_indices: [idx]});
+                              if (e.target.checked) {
+                                setFormData({...formData, day_indices: [...formData.day_indices, idx]});
                               } else {
-                                if (e.target.checked) {
-                                  setFormData({...formData, day_indices: [...formData.day_indices, idx]});
-                                } else {
-                                  // No permitir quedarse sin días
-                                  if (formData.day_indices.length > 1) {
-                                    setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
-                                  }
+                                // No permitir quedarse sin días
+                                if (formData.day_indices.length > 1) {
+                                  setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
                                 }
                               }
                             }}
