@@ -159,70 +159,29 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
               <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
-                {isDestination ? 'Día de llegada' : 'Días del plan '}
-                {!isDestination && <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem' }}>(puedes elegir varios)</span>}
+                {isDestination ? 'Día de llegada' : 'Día del plan'}
               </label>
               {tripStartDate && tripEndDate ? (() => {
                 const start = new Date(tripStartDate);
                 const end = new Date(tripEndDate);
                 const diffMs = end - start;
                 const totalDays = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1);
-                if (isDestination) {
-                  return (
-                    <select
-                      value={formData.day_indices[0] || 1}
-                      onChange={(e) => setFormData({...formData, day_indices: [parseInt(e.target.value)]})}
-                      style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', width: '100%', cursor: 'pointer' }}
-                    >
-                      {Array.from({ length: totalDays }, (_, i) => {
-                        const dayDate = new Date(start);
-                        dayDate.setDate(start.getDate() + i);
-                        const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
-                        const idx = i + 1;
-                        return (
-                          <option key={idx} value={idx}>Día {idx} – {label}</option>
-                        );
-                      })}
-                    </select>
-                  );
-                }
-
                 return (
-                  <div style={{ 
-                    maxHeight: '180px', overflowY: 'auto', 
-                    padding: '8px', borderRadius: '8px', 
-                    border: '1px solid var(--color-border)', 
-                    background: 'var(--color-bg)',
-                    display: 'flex', flexDirection: 'column', gap: '6px'
-                  }}>
+                  <select
+                    value={formData.day_indices[0] || 1}
+                    onChange={(e) => setFormData({...formData, day_indices: [parseInt(e.target.value)]})}
+                    style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text-main)', width: '100%', cursor: 'pointer' }}
+                  >
                     {Array.from({ length: totalDays }, (_, i) => {
                       const dayDate = new Date(start);
                       dayDate.setDate(start.getDate() + i);
                       const label = dayDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
                       const idx = i + 1;
-                      const isChecked = formData.day_indices.includes(idx);
-                      
                       return (
-                        <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: isChecked ? 'var(--color-primary)' : 'var(--color-text-main)', fontWeight: isChecked ? 600 : 400 }}>
-                          <input 
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData({...formData, day_indices: [...formData.day_indices, idx]});
-                              } else {
-                                // No permitir quedarse sin días
-                                if (formData.day_indices.length > 1) {
-                                  setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
-                                }
-                              }
-                            }}
-                          />
-                          Día {idx} – {label}
-                        </label>
+                        <option key={idx} value={idx}>Día {idx} – {label}</option>
                       );
                     })}
-                  </div>
+                  </select>
                 );
               })() : (
                 <input
