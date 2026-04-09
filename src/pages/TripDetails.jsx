@@ -320,7 +320,7 @@ export default function TripDetails() {
       case 'expenses':
         return <TripExpenses tripId={trip.id} isReadOnly={isReadOnly} />;
       case 'destinations': {
-        const destinationPlaces = places.filter(p => !p.day_index || p.day_index === 0);
+        const destinationPlaces = places.filter(p => p.is_destination === true || p.day_index === 0 || !p.day_index);
         return (
           <div className="glass-panel" style={{ padding: 'var(--spacing-xl)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xl)' }}>
@@ -349,6 +349,8 @@ export default function TripDetails() {
                     <div>
                       <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <MapPin size={16} color="var(--color-primary)" />
+                        {place.day_index > 0 && <span style={{ color: 'var(--color-primary)', fontSize: '0.9rem', background: 'rgba(118,75,162,0.1)', padding: '2px 8px', borderRadius: '12px' }}>Día {place.day_index}</span>}
+                        {place.activity_time && <span style={{ color: 'var(--color-primary)', fontSize: '0.9rem', background: 'rgba(118,75,162,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{place.activity_time}</span>}
                         {place.name}
                       </div>
                       {place.reason && <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '4px' }}>{place.reason}</div>}
@@ -385,7 +387,7 @@ export default function TripDetails() {
         );
       }
       case 'itinerary': {
-        const itineraryPlaces = places.filter(p => p.day_index && p.day_index > 0);
+        const itineraryPlaces = places.filter(p => !p.is_destination && p.day_index && p.day_index > 0);
         const placesGrouped = itineraryPlaces.reduce((acc, place) => {
           const day = place.day_index || 1;
           if (!acc[day]) acc[day] = [];

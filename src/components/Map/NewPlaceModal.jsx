@@ -95,7 +95,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           lat: formData.lat,
           lng: formData.lng,
           visited: editingPlace.visited,
-          activity_time: isDestination ? null : (formData.activity_time || null)
+          activity_time: formData.activity_time || null,
+          is_destination: isDestination
         };
 
         const result = await supabase.from('places').update(placeData).eq('id', editingPlace.id).select();
@@ -107,7 +108,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
             ...placeData,
             day_index: dayIdx,
             visited: false,
-            activity_time: null // Fijar a nulo para los subsiguientes días
+            activity_time: null, // Fijar a nulo para los subsiguientes días
+            is_destination: isDestination
           }));
           await supabase.from('places').insert(extraPlaces);
         }
@@ -123,7 +125,8 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
           lat: formData.lat,
           lng: formData.lng,
           visited: false,
-          activity_time: (isDestination || index > 0) ? null : (formData.activity_time || null)
+          activity_time: (index > 0) ? null : (formData.activity_time || null),
+          is_destination: isDestination
         }));
 
         const result = await supabase.from('places').insert(placesToInsert).select();
@@ -153,10 +156,12 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
         
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
           {/* Selector de día con fechas reales y Hora */}
-          {!isDestination && (
-            <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
-              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>Días del plan <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem' }}>(puedes elegir varios)</span></label>
+              <label style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
+                {isDestination ? 'Día de llegada' : 'Días del plan '}
+                {!isDestination && <span style={{ color: 'var(--color-primary)', fontSize: '0.8rem' }}>(puedes elegir varios)</span>}
+              </label>
               {tripStartDate && tripEndDate ? (() => {
                 const start = new Date(tripStartDate);
                 const end = new Date(tripEndDate);
@@ -180,15 +185,20 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
                       return (
                         <label key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: isChecked ? 'var(--color-primary)' : 'var(--color-text-main)', fontWeight: isChecked ? 600 : 400 }}>
                           <input 
-                            type="checkbox"
+                            type={isDestination ? "radio" : "checkbox"}
+                            name={isDestination ? "day_selection" : undefined}
                             checked={isChecked}
                             onChange={(e) => {
-                              if (e.target.checked) {
-                                setFormData({...formData, day_indices: [...formData.day_indices, idx]});
+                              if (isDestination) {
+                                setFormData({...formData, day_indices: [idx]});
                               } else {
-                                // No permitir quedarse sin días
-                                if (formData.day_indices.length > 1) {
-                                  setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
+                                if (e.target.checked) {
+                                  setFormData({...formData, day_indices: [...formData.day_indices, idx]});
+                                } else {
+                                  // No permitir quedarse sin días
+                                  if (formData.day_indices.length > 1) {
+                                    setFormData({...formData, day_indices: formData.day_indices.filter(d => d !== idx)});
+                                  }
                                 }
                               }
                             }}
@@ -210,7 +220,7 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '120px' }}>
-              <label style={{ fontWeight: 500 }}>Hora:</label>
+              <label style={{ fontWeight: 500 }}>{isDestination ? 'Hora de llegada:' : 'Hora:'}</label>
               <input
                 type="time"
                 value={formData.activity_time}
@@ -219,7 +229,6 @@ export default function NewPlaceModal({ isOpen, onClose, tripId, tripStartDate, 
               />
             </div>
           </div>
-          )}
 
           {/* Buscador de Lugar + selector mapa */}
           <div style={{ position: 'relative' }}>
