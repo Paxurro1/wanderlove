@@ -50,6 +50,12 @@ export const AuthProvider = ({ children }) => {
     console.log('Auth: Setting up auth listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth: onAuthStateChange event:', event);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        window.location.href = '/reset-password';
+        return;
+      }
+      
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       

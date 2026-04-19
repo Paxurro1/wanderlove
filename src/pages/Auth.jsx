@@ -53,13 +53,21 @@ const Auth = () => {
         setView('login');
       } else if (view === 'forgot-password') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: window.location.origin,
         });
         if (error) throw error;
         setMessage('Se ha enviado un enlace de recuperación a tu correo electrónico.');
       }
     } catch (error) {
-      setError(error.message);
+      let errorMsg = error.message;
+      if (errorMsg?.includes('URL not authorized') || errorMsg?.includes('not permitted')) {
+        errorMsg = 'Error de configuración: La URL no está autorizada. Contacta al administrador.';
+      } else if (errorMsg?.includes('rate limit')) {
+        errorMsg = 'Por seguridad, solo puedes pedir esto una vez cada 60 segundos. Espera un momento.';
+      } else if (errorMsg?.includes('fetch')) {
+        errorMsg = 'Error de red. Revisa tu conexión a internet e inténtalo de nuevo.';
+      }
+      setError(errorMsg || 'Ha ocurrido un error inesperado. Inténtalo de nuevo.');
     } finally {
       setLoading(false);
     }
