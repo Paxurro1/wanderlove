@@ -21,6 +21,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Detectamos sincrónicamente si la URL contiene el hash de recuperación
+    // ANTES de que Supabase procese y limpie el hash.
+    const isRecovery = window.location.hash.includes('type=recovery');
+
     // Safety timeout: If auth takes more than 10 seconds, force loading to false
     const timeout = setTimeout(() => {
       if (loadingRef.current) {
@@ -35,6 +39,13 @@ export const AuthProvider = ({ children }) => {
       console.log('Auth: Session response:', session ? 'User logged in' : 'No session');
       const currentUser = session?.user ?? null;
       setUser(currentUser);
+      
+      if (isRecovery && currentUser) {
+        // Redirigimos manualmente porque ya tenemos la sesión válida
+        window.location.href = '/reset-password';
+        return;
+      }
+
       if (currentUser) {
         sessionHandledRef.current = true;
         fetchProfile(currentUser.id);
@@ -51,8 +62,10 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth: onAuthStateChange event:', event);
       
-      if (event === 'PASSWORD_RECOVERY') {
-        window.location.href = '/reset-password';
+      if (event === 'PASSWORD_RECOVERY' || isRecovery) {
+        if (window.location.pathname !== '/reset-password') {
+          window.location.href = '/reset-password';
+        }
         return;
       }
       
