@@ -52,6 +52,17 @@ const Auth = () => {
         setConfirmPassword('');
         setView('login');
       } else if (view === 'forgot-password') {
+        // Comprobar si el usuario existe antes de enviar el correo
+        const { data: existingUser } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle();
+          
+        if (!existingUser) {
+          throw new Error('user_not_found');
+        }
+
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: window.location.origin,
         });
@@ -60,7 +71,9 @@ const Auth = () => {
       }
     } catch (error) {
       let errorMsg = error.message;
-      if (errorMsg?.includes('URL not authorized') || errorMsg?.includes('not permitted')) {
+      if (errorMsg === 'user_not_found') {
+        errorMsg = 'No existe ninguna cuenta registrada con este correo electrónico.';
+      } else if (errorMsg?.includes('URL not authorized') || errorMsg?.includes('not permitted')) {
         errorMsg = 'Error de configuración: La URL no está autorizada. Contacta al administrador.';
       } else if (errorMsg?.includes('rate limit')) {
         errorMsg = 'Por seguridad, solo puedes pedir esto una vez cada 60 segundos. Espera un momento.';
